@@ -5,10 +5,9 @@ class Gateway {
   final String location;
   final double latitude;
   final double longitude;
-  final String type; // "GENERAL" or "BOUNDARY"
+  final String type; // "GENERAL", "BOUNDARY", or "MOBILE"
   final String serialNumber;
   final String? tenantId;
-  final String poolType; // "PUBLIC" or "TENANT"
 
   Gateway({
     required this.id,
@@ -19,20 +18,30 @@ class Gateway {
     required this.type,
     required this.serialNumber,
     this.tenantId,
-    required this.poolType,
   });
 
   factory Gateway.fromJson(Map<String, dynamic> json) {
+    // 處理座標可能是字串或數字的情況
+    double parseCoordinate(dynamic value) {
+      if (value == null) return 0.0;
+      if (value is num) {
+        return value.toDouble();
+      } else if (value is String) {
+        return double.tryParse(value) ?? 0.0;
+      } else {
+        return 0.0;
+      }
+    }
+
     return Gateway(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      location: json['location'] as String,
-      latitude: (json['latitude'] as num).toDouble(),
-      longitude: (json['longitude'] as num).toDouble(),
-      type: json['type'] as String,
-      serialNumber: json['serialNumber'] as String,
+      id: (json['id'] ?? '') as String,
+      name: (json['name'] ?? 'Unknown Gateway') as String,
+      location: (json['location'] ?? '') as String,
+      latitude: parseCoordinate(json['latitude']),
+      longitude: parseCoordinate(json['longitude']),
+      type: (json['type'] ?? 'GENERAL') as String,
+      serialNumber: (json['serialNumber'] ?? '') as String,
       tenantId: json['tenantId'] as String?,
-      poolType: json['poolType'] as String,
     );
   }
 
@@ -45,8 +54,7 @@ class Gateway {
       'longitude': longitude,
       'type': type,
       'serialNumber': serialNumber,
-      'tenantId': tenantId,
-      'poolType': poolType,
+      if (tenantId != null) 'tenantId': tenantId,
     };
   }
 

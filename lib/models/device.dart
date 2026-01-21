@@ -8,6 +8,7 @@ class Device {
   final String? nickname; // 設備暱稱（用戶自訂）
   final int? age; // 使用者年齡（用戶自訂）
   final DateTime? boundAt; // 綁定時間
+  final int? batteryLevel; // 電池電量 (0-100)
 
   Device({
     required this.id,
@@ -18,20 +19,22 @@ class Device {
     this.nickname,
     this.age,
     this.boundAt,
+    this.batteryLevel,
   });
 
   factory Device.fromJson(Map<String, dynamic> json) {
     return Device(
-      id: json['id'] as String,
-      uuid: json['uuid'] as String,
-      major: json['major'] as int,
-      minor: json['minor'] as int,
-      deviceName: json['deviceName'] as String,
+      id: (json['id'] ?? '') as String,
+      uuid: (json['uuid'] ?? '') as String,
+      major: (json['major'] ?? 0) as int,
+      minor: (json['minor'] ?? 0) as int,
+      deviceName: (json['deviceName'] ?? 'Unknown Device') as String,
       nickname: json['nickname'] as String?,
       age: json['age'] as int?,
       boundAt: json['boundAt'] != null
           ? DateTime.parse(json['boundAt'] as String)
           : null,
+      batteryLevel: json['batteryLevel'] as int?,
     );
   }
 
@@ -45,6 +48,7 @@ class Device {
       if (nickname != null) 'nickname': nickname,
       if (age != null) 'age': age,
       if (boundAt != null) 'boundAt': boundAt!.toIso8601String(),
+      if (batteryLevel != null) 'batteryLevel': batteryLevel,
     };
   }
 

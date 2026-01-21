@@ -1,19 +1,14 @@
 # 地圖 APP API 端點文檔
 
-> **架構更新通知 (2026-01-21):**  
-> 系統已完成裝置綁定架構重整，統一使用 `bindingType` + `boundTo` 管理所有裝置綁定。  
-> 主要變更：移除 `poolType`/`elderId`/`mapAppUserId` 欄位，改用統一的綁定狀態。  
-> 詳見本文檔末尾的「資料結構與隔離」章節。
-
 ## 📋 概述
 
-本文檔列出所有地圖 APP 專用的 Cloud Functions API 端點。這些 API 使用統一的裝置綁定架構，與現有的 Tenant-Elder 系統共享裝置資源但邏輯獨立。
+本文檔列出所有地圖 APP 專用的 Cloud Functions API 端點。這些 API 與現有的 Tenant-Elder 系統完全獨立，不會影響後台和 LIFF 的功能。
 
 **Firebase 專案:** safe-net-tw  
 **Region:** us-central1  
 **基礎 URL:** `https://[function-name]-kmzfyt3t5a-uc.a.run.app` (2nd Gen Functions)
 
-**地圖 APP 專用 API URL 列表:**
+**完整 URL 列表:**
 - mapUserAuth: `https://mapuserauth-kmzfyt3t5a-uc.a.run.app`
 - updateMapUserFcmToken: `https://updatemapuserfcmtoken-kmzfyt3t5a-uc.a.run.app`
 - bindDeviceToMapUser: `https://binddevicetomapuser-kmzfyt3t5a-uc.a.run.app`
@@ -25,11 +20,6 @@
 - removeMapUserNotificationPoint: `https://removemapusernotificationpoint-kmzfyt3t5a-uc.a.run.app`
 - getMapUserActivities: `https://getmapuseractivities-kmzfyt3t5a-uc.a.run.app`
 - getMapUserProfile: `https://getmapuserprofile-kmzfyt3t5a-uc.a.run.app`
-
-**共用 API（與 Tenant-Elder 系統共用）:**
-- receiveBeaconData: `https://receivebeacondata-kmzfyt3t5a-uc.a.run.app`
-- getServiceUuids: `https://getserviceuuids-kmzfyt3t5a-uc.a.run.app`
-- getDeviceWhitelist: `https://getdevicewhitelist-kmzfyt3t5a-uc.a.run.app`
 
 ---
 
@@ -155,8 +145,8 @@ const idToken = await user.getIdToken();
 - `userId` (必需): 用戶 ID
 - `deviceId` (選填): 設備 ID（與 `deviceName` 二選一）
 - `deviceName` (選填): 產品序號（與 `deviceId` 二選一）
-- `nickname` (選填): 設備暱稱（儲存在設備的 `mapUserNickname` 欄位）
-- `age` (選填): 使用者年齡（儲存在設備的 `mapUserAge` 欄位）
+- `nickname` (選填): 設備暱稱（儲存在用戶資料，不與設備綁死）
+- `age` (選填): 使用者年齡（儲存在用戶資料，不與設備綁死）
 
 **回應:**
 ```json
@@ -177,12 +167,12 @@ const idToken = await user.getIdToken();
 
 **注意事項:**
 - 可使用 `deviceId` 或 `deviceName`（產品序號）綁定，兩者擇一即可
-- 設備必須為未綁定狀態（`bindingType: "UNBOUND"`）或已綁定給該用戶
-- 設備不可已綁定給老人系統（`bindingType: "ELDER"`）
+- 設備必須標記為 `poolType: "PUBLIC"`
+- 設備不可已綁定給老人系統（`elderId` 必須為 null）
 - 每個用戶只能綁定一個設備
 - 綁定新設備會自動解綁舊設備
-- 暱稱和年齡存在設備資料中（`mapUserNickname`, `mapUserAge`），與設備綁定
-- 解綁設備時會同時清空設備上的暱稱和年齡
+- 暱稱和年齡存在用戶資料中，不會影響設備本身
+- 解綁設備時會同時清空暱稱和年齡
 
 ---
 
@@ -230,7 +220,8 @@ const idToken = await user.getIdToken();
       "longitude": 121.517315,
       "type": "GENERAL",
       "serialNumber": "SN12345",
-      "tenantId": null
+      "tenantId": null,
+      "poolType": "PUBLIC"
     },
     {
       "id": "gateway_002",
@@ -240,7 +231,8 @@ const idToken = await user.getIdToken();
       "longitude": 121.564468,
       "type": "BOUNDARY",
       "serialNumber": "SN67890",
-      "tenantId": "tenant_abc"
+      "tenantId": "tenant_abc",
+      "poolType": "TENANT"
     }
   ],
   "count": 2,
@@ -250,7 +242,7 @@ const idToken = await user.getIdToken();
 
 **欄位說明:**
 - `tenantId`: 若為社區專用接收點，會顯示所屬社區 ID；公共接收點為 `null`
-- `type`: 接收點類型（`"GENERAL"` 一般、`"BOUNDARY"` 邊界、`"MOBILE"` 移動）
+- `poolType`: `"PUBLIC"` 為公共接收點，`"TENANT"` 為社區專用接收點
 
 ---
 
@@ -377,11 +369,6 @@ const idToken = await user.getIdToken();
 **端點:** `GET /getMapUserActivities`  
 **認證:** 必需
 
-**架構說明:**
-- 活動記錄統一儲存在 `devices/{deviceId}/activities` 子集合
-- API 會自動查詢該用戶綁定設備的活動記錄
-- 記錄包含當時的綁定狀態（`bindingType`, `boundTo`）和通知類型
-
 **Query 參數:**
 - `userId` (必需): 用戶 ID
 - `startTime` (選填): 開始時間 (timestamp in milliseconds)
@@ -403,46 +390,31 @@ GET /getMapUserActivities?userId=firebase_uid_123&startTime=1737360000000&endTim
       "deviceId": "device_abc123",
       "gatewayId": "gateway_001",
       "gatewayName": "台北車站東門",
-      "gatewayType": "GENERAL",
+      "gatewayLocation": "台北車站",
       "timestamp": "2026-01-21T10:30:00Z",
       "rssi": -65,
       "latitude": 25.047908,
       "longitude": 121.517315,
-      "bindingType": "MAP_USER",
-      "boundTo": "firebase_uid_123",
       "triggeredNotification": true,
-      "notificationType": "FCM",
-      "notificationDetails": {
-        "pointId": "point_xyz123",
-        "pointName": "我的家"
-      }
+      "notificationPointId": "point_xyz123"
     },
     {
       "id": "activity_002",
       "deviceId": "device_abc123",
       "gatewayId": "gateway_002",
       "gatewayName": "信義區邊界",
-      "gatewayType": "BOUNDARY",
+      "gatewayLocation": "信義區",
       "timestamp": "2026-01-21T11:15:00Z",
       "rssi": -72,
       "latitude": 25.033964,
       "longitude": 121.564468,
-      "bindingType": "MAP_USER",
-      "boundTo": "firebase_uid_123",
-      "triggeredNotification": false,
-      "notificationType": null
+      "triggeredNotification": false
     }
   ],
   "count": 2,
   "timestamp": 1737446400000
 }
 ```
-
-**新增欄位說明:**
-- `bindingType`: 記錄當時的綁定類型（"ELDER", "MAP_USER", "UNBOUND"）
-- `boundTo`: 記錄當時綁定的對象 ID
-- `notificationType`: 通知類型（"LINE", "FCM", null）
-- `notificationDetails`: 通知詳細資訊
 
 ---
 
@@ -507,7 +479,6 @@ GET /getMapUserProfile?userId=firebase_uid_123
 
 **回應欄位說明:**
 - `user`: 用戶基本資訊
-- `boundDevice`: 綁定的設備資訊（從 Device collection 取得，包含 `mapUserNickname` 和 `mapUserAge`）
 - `boundDevice`: 綁定的設備詳情（如果有綁定），包含暱稱和年齡
 - `notificationPoints`: 通知點位列表，每個點位包含對應的 Gateway 資訊
 
@@ -692,16 +663,9 @@ const profile = await fetch(
 }
 ```
 
-**常見錯誤訊息 (bindDeviceToMapUser):**
-- `"Device with deviceName 'xxx' not found"` - 找不到該產品序號的設備
-- `"Device is already bound to an elder in the tenant system"` - 設備已綁定給老人系統（bindingType: "ELDER"）
-- `"Device is already bound to another map app user"` - 設備已被其他地圖用戶綁定（bindingType: "MAP_USER"）
-
 ---
 
 ## 📊 API 摘要表
-
-### 地圖 APP 專用 API
 
 | 功能 | API 名稱 | HTTP 方法 | 認證 |
 |------|---------|----------|------|
@@ -717,14 +681,6 @@ const profile = await fetch(
 | 取得活動記錄 | getMapUserActivities | GET | 必需 |
 | 取得用戶完整資料 | getMapUserProfile | GET | 必需 |
 
-### 共用 API（與 Tenant-Elder 系統共用）
-
-| 功能 | API 名稱 | HTTP 方法 | 認證 | 說明 |
-|------|---------|----------|------|------|
-| 接收 Beacon 資料 | receiveBeaconData | POST | 不需要 | 閘道上傳 beacon 資料 |
-| 取得服務 UUID 列表 | getServiceUuids | GET | 不需要 | 取得可用的 Beacon UUID |
-| 取得設備白名單 | getDeviceWhitelist | GET | 不需要 | 取得允許的設備列表 |
-
 ---
 
 ## 🎯 與現有系統的關係
@@ -737,78 +693,17 @@ const profile = await fetch(
 - 後台管理 API
 
 ### 共用的 API
-- `receiveBeaconData`: 統一處理所有裝置的 beacon 資料
-  - 根據裝置的 `bindingType` 自動決定通知方式：
-    - `bindingType: "ELDER"` → 發送 LINE 通知給社區成員
-    - `bindingType: "MAP_USER"` → 發送 FCM 推播給 APP 用戶
-    - `bindingType: "UNBOUND"` → 只記錄活動，不發送通知
-  - 所有活動統一記錄在 `devices/{deviceId}/activities` 子集合
-  - 現已支援電量更新（batteryLevel 欄位）
+- `receiveBeaconData`: 已擴充支援地圖用戶，同時保持原有 Tenant-Elder 功能。現已支援電量更新（batteryLevel 欄位）
 - `getServiceUuids`: 地圖用戶的接收器也需要此 API
 - `getDeviceWhitelist`: 可選擇性使用
 
-### 資料結構與隔離
-
-#### Collections
-- `mapAppUsers`: 地圖 APP 用戶資料
-  - 只保留 `boundDeviceId` 作為雙向引用
-  - 不再儲存 `deviceNickname`, `deviceOwnerAge`, `boundAt`
-- `mapUserNotificationPoints`: 用戶自訂通知點位
-- `devices/{deviceId}/activities`: 統一的裝置活動記錄（子集合）
-  - 取代舊的 `latest_locations` 和 `mapUserActivities`
-  - 記錄所有裝置活動，不受綁定轉移影響
-
-#### 裝置綁定機制（Device Collection）
-```json
-{
-  "id": "device_001",
-  "bindingType": "ELDER" | "MAP_USER" | "UNBOUND",
-  "boundTo": "elder_id or user_id",
-  "boundAt": "2026-01-21T10:00:00Z",
-  "mapUserNickname": "媽媽的手環",
-  "mapUserAge": 65,
-  "tags": ["tenant_dalove_001"],
-  "uuid": "550e8400-e29b-41d4-a716-446655440000",
-  "major": 1,
-  "minor": 1001,
-  "deviceName": "1-1001",
-  "type": "IBEACON",
-  "batteryLevel": 85,
-  "lastSeen": "2026-01-21T10:00:00Z",
-  "isActive": true
-}
-```
-
-**綁定類型說明:**
-- `"ELDER"`: 綁定給長者，`boundTo` 為 elderId，LINE 通知透過 Elder.tenantId 找到社區
-- `"MAP_USER"`: 綁定給 APP 用戶，`boundTo` 為 mapAppUserId，直接 FCM 推播
-- `"UNBOUND"`: 未綁定，只記錄活動不發送通知
-
-**社區標籤:**
-- `tags` 陣列儲存社區 ID 或其他分類標籤
-- 取代舊的 `tenantId` 欄位（社區不再是資源分配，而是標籤）
-
-#### 活動記錄結構（devices/{deviceId}/activities）
-```json
-{
-  "timestamp": "2026-01-21T10:00:00Z",
-  "gatewayId": "gateway_001",
-  "gatewayName": "台北車站東門",
-  "gatewayType": "GENERAL",
-  "latitude": 25.047908,
-  "longitude": 121.517315,
-  "rssi": -65,
-  "bindingType": "MAP_USER",
-  "boundTo": "user_123",
-  "triggeredNotification": true,
-  "notificationType": "FCM",
-  "notificationDetails": {...}
-}
-```
+### 資料隔離
+- 地圖用戶使用獨立的 Collections: `mapAppUsers`, `mapUserNotificationPoints`, `mapUserActivities`
+- Device 和 Gateway 透過 `poolType` 欄位區分
+- 不會影響現有的 Tenant-Elder 資料
 
 ---
 
 **更新日期:** 2026-01-21  
-**版本:** 2.0.0  
-**專案:** safe-net-tw  
-**架構版本:** 統一綁定架構（bindingType + boundTo）
+**版本:** 1.0.0  
+**專案:** safe-net-tw

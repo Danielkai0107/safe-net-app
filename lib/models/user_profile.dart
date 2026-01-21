@@ -25,9 +25,9 @@ class UserProfile {
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     return UserProfile(
-      id: json['id'] as String,
-      email: json['email'] as String,
-      name: json['name'] as String,
+      id: (json['id'] ?? '') as String,
+      email: (json['email'] ?? '') as String,
+      name: (json['name'] ?? 'Unknown') as String,
       phone: json['phone'] as String?,
       avatar: json['avatar'] as String?,
       notificationEnabled: json['notificationEnabled'] as bool? ?? true,

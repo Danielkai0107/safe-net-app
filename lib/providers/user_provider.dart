@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import '../models/user_profile.dart';
 import '../models/device.dart';
 import '../services/api_service.dart';
-import '../services/auth_service.dart';
 
 /// 用戶資料狀態管理
 class UserProvider with ChangeNotifier {
@@ -28,13 +27,13 @@ class UserProvider with ChangeNotifier {
       debugPrint('載入用戶資料: $userId');
       final result = await _apiService.getMapUserProfile(userId: userId);
       debugPrint('API 回應: $result');
-      
+
       if (result['success'] == true) {
         final userData = result['user'];
         if (userData == null) {
           throw Exception('用戶資料為空');
         }
-        
+
         _userProfile = UserProfile.fromJson({
           'id': userData['id'] ?? userId,
           'email': userData['email'] ?? '',
@@ -59,9 +58,16 @@ class UserProvider with ChangeNotifier {
   }
 
   /// 綁定設備
+  ///
+  /// [userId] - 用戶 ID（必需）
+  /// [deviceId] - 設備 ID（與 deviceName 二選一）
+  /// [deviceName] - 產品序號（與 deviceId 二選一）
+  /// [nickname] - 設備暱稱（選填）
+  /// [age] - 使用者年齡（選填）
   Future<bool> bindDevice({
     required String userId,
-    required String deviceId,
+    String? deviceId,
+    String? deviceName,
     String? nickname,
     int? age,
   }) async {
@@ -70,23 +76,38 @@ class UserProvider with ChangeNotifier {
     notifyListeners();
 
     try {
+      debugPrint('UserProvider: 開始綁定設備');
+      debugPrint('  userId: $userId');
+      debugPrint('  deviceId: $deviceId');
+      debugPrint('  deviceName: $deviceName');
+      debugPrint('  nickname: $nickname');
+      debugPrint('  age: $age');
+      
       final result = await _apiService.bindDeviceToMapUser(
         userId: userId,
         deviceId: deviceId,
+        deviceName: deviceName,
+        nickname: nickname,
+        age: age,
       );
 
+      debugPrint('UserProvider: API 回應: $result');
+
       if (result['success'] == true) {
+        debugPrint('UserProvider: 綁定成功，重新載入用戶資料');
         // 重新載入用戶資料
         await loadUserProfile(userId);
         return true;
       } else {
         _error = result['error'] ?? '綁定設備失敗';
+        debugPrint('UserProvider: 綁定失敗 - $_error');
         _isLoading = false;
         notifyListeners();
         return false;
       }
     } catch (e) {
       _error = e.toString();
+      debugPrint('UserProvider: 綁定錯誤 - $_error');
       _isLoading = false;
       notifyListeners();
       return false;
@@ -94,17 +115,13 @@ class UserProvider with ChangeNotifier {
   }
 
   /// 解綁設備
-  Future<bool> unbindDevice({
-    required String userId,
-  }) async {
+  Future<bool> unbindDevice({required String userId}) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      final result = await _apiService.unbindDeviceFromMapUser(
-        userId: userId,
-      );
+      final result = await _apiService.unbindDeviceFromMapUser(userId: userId);
 
       if (result['success'] == true) {
         // 重新載入用戶資料

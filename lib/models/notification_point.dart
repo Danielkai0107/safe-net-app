@@ -24,13 +24,15 @@ class NotificationPoint {
 
   factory NotificationPoint.fromJson(Map<String, dynamic> json) {
     return NotificationPoint(
-      id: json['id'] as String,
-      mapAppUserId: json['mapAppUserId'] as String,
-      gatewayId: json['gatewayId'] as String,
-      name: json['name'] as String,
-      notificationMessage: json['notificationMessage'] as String,
+      id: (json['id'] ?? '') as String,
+      mapAppUserId: (json['mapAppUserId'] ?? '') as String,
+      gatewayId: (json['gatewayId'] ?? '') as String,
+      name: (json['name'] ?? '') as String,
+      notificationMessage: (json['notificationMessage'] ?? '') as String,
       isActive: json['isActive'] as bool? ?? true,
-      createdAt: DateTime.parse(json['createdAt'] as String),
+      createdAt: json['createdAt'] != null 
+          ? DateTime.parse(json['createdAt'] as String)
+          : DateTime.now(),
       gateway: json['gateway'] != null
           ? Gateway.fromJson(json['gateway'] as Map<String, dynamic>)
           : null,

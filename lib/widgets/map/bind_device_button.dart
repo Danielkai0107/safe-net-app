@@ -37,8 +37,8 @@ class BindDeviceButton extends StatelessWidget {
               ),
             );
           } else {
-            // 已登入，顯示綁定對話框
-            showCupertinoDialog(
+            // 已登入，顯示綁定對話框（使用 bottom sheet）
+            showCupertinoModalPopup(
               context: context,
               builder: (context) => const BindDeviceDialog(),
             );

@@ -65,8 +65,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!mounted) return;
 
     if (success) {
-      // 註冊成功，導航由 main.dart 的 Consumer 處理
-      Navigator.of(context).pop(); // 返回登入頁面
+      // 註冊成功，導航由 main.dart 的 Consumer 自動處理
+      // 先 pop 回到登入頁面，然後 AuthenticationWrapper 會自動導航到主畫面
+      Navigator.of(context).pop();
+      
+      // 顯示成功訊息
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (mounted) {
+          Helpers.showSuccessDialog(context, '註冊成功！歡迎使用');
+        }
+      });
     } else {
       Helpers.showErrorDialog(
         context,

@@ -7,6 +7,7 @@ import '../../providers/user_provider.dart';
 import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
 import 'notification_points_screen.dart';
+import 'history_timeline_screen.dart';
 
 /// 個人資料頁面
 class ProfileTab extends StatefulWidget {
@@ -17,6 +18,8 @@ class ProfileTab extends StatefulWidget {
 }
 
 class _ProfileTabState extends State<ProfileTab> {
+  bool _isUnbindingDevice = false;
+
   @override
   void initState() {
     super.initState();
@@ -55,6 +58,8 @@ class _ProfileTabState extends State<ProfileTab> {
   }
 
   Future<void> _handleUnbindDevice() async {
+    if (_isUnbindingDevice) return; // 防止重複提交
+    
     final confirmed = await Helpers.showConfirmDialog(
       context,
       '移除設備',
@@ -63,17 +68,33 @@ class _ProfileTabState extends State<ProfileTab> {
 
     if (!confirmed || !mounted) return;
 
+    setState(() {
+      _isUnbindingDevice = true;
+    });
+
     final authProvider = context.read<AuthProvider>();
     final userProvider = context.read<UserProvider>();
+    final mapProvider = context.read<MapProvider>();
     final userId = authProvider.user?.uid;
 
-    if (userId == null) return;
+    if (userId == null) {
+      setState(() {
+        _isUnbindingDevice = false;
+      });
+      return;
+    }
 
     final success = await userProvider.unbindDevice(userId: userId);
 
     if (!mounted) return;
 
+    setState(() {
+      _isUnbindingDevice = false;
+    });
+
     if (success) {
+      // 清空活動記錄
+      mapProvider.clearActivities();
       Helpers.showSuccessDialog(context, '設備已移除');
     } else {
       Helpers.showErrorDialog(
@@ -292,13 +313,17 @@ class _ProfileTabState extends State<ProfileTab> {
                               ),
                               CupertinoButton(
                                 padding: EdgeInsets.zero,
-                                onPressed: _handleUnbindDevice,
-                                child: const Text(
-                                  '移除',
-                                  style: TextStyle(
-                                    color: AppConstants.secondaryColor,
-                                  ),
-                                ),
+                                onPressed: _isUnbindingDevice ? null : _handleUnbindDevice,
+                                child: _isUnbindingDevice
+                                    ? const CupertinoActivityIndicator(
+                                        color: AppConstants.secondaryColor,
+                                      )
+                                    : const Text(
+                                        '移除',
+                                        style: TextStyle(
+                                          color: AppConstants.secondaryColor,
+                                        ),
+                                      ),
                               ),
                             ],
                           ),
@@ -324,6 +349,77 @@ class _ProfileTabState extends State<ProfileTab> {
                         ],
                       ),
                     ),
+
+                  const SizedBox(height: AppConstants.paddingMedium),
+
+                  // 過去守護區塊
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppConstants.cardColor,
+                      borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                      boxShadow: [
+                        BoxShadow(
+                          color: CupertinoColors.systemGrey.withOpacity(0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: CupertinoButton(
+                      padding: const EdgeInsets.all(AppConstants.paddingMedium),
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          CupertinoPageRoute(
+                            builder: (context) => const HistoryTimelineScreen(),
+                          ),
+                        );
+                      },
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: AppConstants.primaryColor.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Icon(
+                              CupertinoIcons.time,
+                              color: AppConstants.primaryColor,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: AppConstants.paddingMedium),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '過去守護',
+                                  style: TextStyle(
+                                    fontSize: AppConstants.fontSizeLarge,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppConstants.textColor,
+                                  ),
+                                ),
+                                Text(
+                                  '查看歷史活動記錄',
+                                  style: TextStyle(
+                                    fontSize: AppConstants.fontSizeSmall,
+                                    color: AppConstants.textColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(
+                            CupertinoIcons.chevron_forward,
+                            color: AppConstants.textColor,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
 
                   const SizedBox(height: AppConstants.paddingMedium),
 

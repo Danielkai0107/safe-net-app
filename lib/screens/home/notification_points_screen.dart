@@ -1,53 +1,98 @@
 import 'package:flutter/cupertino.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import '../../models/notification_point.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/map_provider.dart';
 import '../../providers/user_provider.dart';
+import '../../services/tab_navigation_service.dart';
 import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
 
 /// 通知點列表頁面
-class NotificationPointsScreen extends StatelessWidget {
+class NotificationPointsScreen extends StatefulWidget {
   const NotificationPointsScreen({super.key});
 
-  Future<void> _handleRemove(
-    BuildContext context,
-    NotificationPoint point,
-  ) async {
+  @override
+  State<NotificationPointsScreen> createState() => _NotificationPointsScreenState();
+}
+
+class _NotificationPointsScreenState extends State<NotificationPointsScreen> {
+  String? _removingPointId; // 記錄正在移除的點位 ID
+
+  Future<void> _handleRemove(NotificationPoint point) async {
+    if (_removingPointId != null) return; // 防止重複提交
+    
     final confirmed = await Helpers.showConfirmDialog(
       context,
       '移除通知點位',
       '確定要移除「${point.name}」嗎？',
     );
 
-    if (!confirmed || !context.mounted) return;
+    if (!confirmed || !mounted) return;
+
+    setState(() {
+      _removingPointId = point.id;
+    });
 
     final authProvider = context.read<AuthProvider>();
     final mapProvider = context.read<MapProvider>();
     final userProvider = context.read<UserProvider>();
     final userId = authProvider.user?.uid;
 
-    if (userId == null) return;
+    if (userId == null) {
+      setState(() {
+        _removingPointId = null;
+      });
+      return;
+    }
 
     final success = await mapProvider.removeNotificationPoint(
       pointId: point.id,
       userId: userId,
     );
 
-    if (!context.mounted) return;
+    if (!mounted) return;
+
+    setState(() {
+      _removingPointId = null;
+    });
 
     if (success) {
       // 重新載入用戶資料
       await userProvider.loadUserProfile(userId);
       Helpers.showSuccessDialog(context, '通知點位已移除');
     } else {
-      Helpers.showErrorDialog(
-        context,
-        mapProvider.error ?? '移除通知點位失敗',
-      );
+      Helpers.showErrorDialog(context, mapProvider.error ?? '移除通知點位失敗');
     }
   }
+
+  void _handleViewLocation(NotificationPoint point) {
+    if (point.gateway == null) return;
+
+    debugPrint('查看通知點位位置: ${point.name}');
+    debugPrint('位置: (${point.gateway!.latitude}, ${point.gateway!.longitude})');
+
+    // 切換到地圖 tab
+    final tabNavService = TabNavigationService();
+    tabNavService.switchToMapTab();
+
+    // 延遲更新地圖位置，確保已切換到地圖 tab
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) {
+        final mapProvider = context.read<MapProvider>();
+        mapProvider.updateCenter(
+          LatLng(point.gateway!.latitude, point.gateway!.longitude),
+          newZoom: 17.0,
+        );
+        debugPrint('地圖已更新至通知點位');
+      }
+    });
+
+    // 返回上一頁
+    Navigator.of(context).pop();
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -66,7 +111,8 @@ class NotificationPointsScreen extends StatelessWidget {
       child: SafeArea(
         child: Consumer<UserProvider>(
           builder: (context, userProvider, child) {
-            final notificationPoints = userProvider.userProfile?.notificationPoints ?? [];
+            final notificationPoints =
+                userProvider.userProfile?.notificationPoints ?? [];
 
             if (notificationPoints.isEmpty) {
               return Center(
@@ -105,11 +151,15 @@ class NotificationPointsScreen extends StatelessWidget {
               itemBuilder: (context, index) {
                 final point = notificationPoints[index];
                 return Container(
-                  margin: const EdgeInsets.only(bottom: AppConstants.paddingMedium),
+                  margin: const EdgeInsets.only(
+                    bottom: AppConstants.paddingMedium,
+                  ),
                   padding: const EdgeInsets.all(AppConstants.paddingMedium),
                   decoration: BoxDecoration(
                     color: AppConstants.cardColor,
-                    borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                    borderRadius: BorderRadius.circular(
+                      AppConstants.borderRadius,
+                    ),
                     boxShadow: [
                       BoxShadow(
                         color: CupertinoColors.systemGrey.withOpacity(0.1),
@@ -155,7 +205,9 @@ class NotificationPointsScreen extends StatelessWidget {
                                   Icon(
                                     CupertinoIcons.location_fill,
                                     size: 14,
-                                    color: AppConstants.textColor.withOpacity(0.6),
+                                    color: AppConstants.textColor.withOpacity(
+                                      0.6,
+                                    ),
                                   ),
                                   const SizedBox(width: 4),
                                   Expanded(
@@ -163,7 +215,8 @@ class NotificationPointsScreen extends StatelessWidget {
                                       point.gateway!.name,
                                       style: TextStyle(
                                         fontSize: AppConstants.fontSizeSmall,
-                                        color: AppConstants.textColor.withOpacity(0.6),
+                                        color: AppConstants.textColor
+                                            .withOpacity(0.6),
                                       ),
                                     ),
                                   ),
@@ -182,15 +235,38 @@ class NotificationPointsScreen extends StatelessWidget {
                           ],
                         ),
                       ),
+                      // 查看位置按鈕
+                      CupertinoButton(
+                        padding: EdgeInsets.zero,
+                        onPressed: _removingPointId != null 
+                            ? null 
+                            : () => _handleViewLocation(point),
+                        child: Icon(
+                          CupertinoIcons.location,
+                          color: _removingPointId != null
+                              ? AppConstants.primaryColor.withOpacity(0.3)
+                              : AppConstants.primaryColor,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
                       // 刪除按鈕
                       CupertinoButton(
                         padding: EdgeInsets.zero,
-                        onPressed: () => _handleRemove(context, point),
-                        child: const Icon(
-                          CupertinoIcons.trash,
-                          color: AppConstants.secondaryColor,
-                          size: 24,
-                        ),
+                        onPressed: _removingPointId != null 
+                            ? null 
+                            : () => _handleRemove(point),
+                        child: _removingPointId == point.id
+                            ? const CupertinoActivityIndicator(
+                                color: AppConstants.secondaryColor,
+                              )
+                            : Icon(
+                                CupertinoIcons.trash,
+                                color: _removingPointId != null
+                                    ? AppConstants.secondaryColor.withOpacity(0.3)
+                                    : AppConstants.secondaryColor,
+                                size: 24,
+                              ),
                       ),
                     ],
                   ),

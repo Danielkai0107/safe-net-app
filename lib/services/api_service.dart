@@ -3,10 +3,33 @@ import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 
 /// 地圖 APP API 服務
-/// 
-/// 用於呼叫 safe-net-tw Firebase Cloud Functions
+///
+/// 用於呼叫 safe-net-tw Firebase Cloud Functions (2nd Gen)
 class ApiService {
-  static const String baseUrl = 'https://us-central1-safe-net-tw.cloudfunctions.net';
+  // 2nd Gen Cloud Functions URLs
+  static const String _mapUserAuthUrl =
+      'https://mapuserauth-kmzfyt3t5a-uc.a.run.app';
+  static const String _updateMapUserFcmTokenUrl =
+      'https://updatemapuserfcmtoken-kmzfyt3t5a-uc.a.run.app';
+  static const String _bindDeviceToMapUserUrl =
+      'https://binddevicetomapuser-kmzfyt3t5a-uc.a.run.app';
+  static const String _unbindDeviceFromMapUserUrl =
+      'https://unbinddevicefrommapuser-kmzfyt3t5a-uc.a.run.app';
+  static const String _getPublicGatewaysUrl =
+      'https://getpublicgateways-kmzfyt3t5a-uc.a.run.app';
+  static const String _addMapUserNotificationPointUrl =
+      'https://addmapusernotificationpoint-kmzfyt3t5a-uc.a.run.app';
+  static const String _getMapUserNotificationPointsUrl =
+      'https://getmapusernotificationpoints-kmzfyt3t5a-uc.a.run.app';
+  static const String _updateMapUserNotificationPointUrl =
+      'https://updatemapusernotificationpoint-kmzfyt3t5a-uc.a.run.app';
+  static const String _removeMapUserNotificationPointUrl =
+      'https://removemapusernotificationpoint-kmzfyt3t5a-uc.a.run.app';
+  static const String _getMapUserActivitiesUrl =
+      'https://getmapuseractivities-kmzfyt3t5a-uc.a.run.app';
+  static const String _getMapUserProfileUrl =
+      'https://getmapuserprofile-kmzfyt3t5a-uc.a.run.app';
+
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   /// 取得當前用戶的 ID Token
@@ -18,9 +41,7 @@ class ApiService {
 
   /// 取得認證 Headers
   Future<Map<String, String>> _getHeaders({bool requireAuth = true}) async {
-    final headers = {
-      'Content-Type': 'application/json',
-    };
+    final headers = {'Content-Type': 'application/json'};
 
     if (requireAuth) {
       final token = await _getIdToken();
@@ -33,7 +54,7 @@ class ApiService {
   }
 
   /// 用戶認證 API (註冊/登入)
-  /// 
+  ///
   /// [action] - "register" 或 "login"
   /// [email] - 用戶電子郵件
   /// [name] - 用戶姓名 (註冊時必填)
@@ -45,7 +66,7 @@ class ApiService {
     String? phone,
   }) async {
     final response = await http.post(
-      Uri.parse('$baseUrl/mapUserAuth'),
+      Uri.parse(_mapUserAuthUrl),
       headers: await _getHeaders(),
       body: jsonEncode({
         'action': action,
@@ -64,32 +85,84 @@ class ApiService {
     required String fcmToken,
   }) async {
     final response = await http.post(
-      Uri.parse('$baseUrl/updateMapUserFcmToken'),
+      Uri.parse(_updateMapUserFcmTokenUrl),
       headers: await _getHeaders(),
-      body: jsonEncode({
-        'userId': userId,
-        'fcmToken': fcmToken,
-      }),
+      body: jsonEncode({'userId': userId, 'fcmToken': fcmToken}),
     );
 
     return jsonDecode(response.body);
   }
 
   /// 綁定設備
+  ///
+  /// [userId] - 用戶 ID（必需）
+  /// [deviceId] - 設備 ID（與 deviceName 二選一）
+  /// [deviceName] - 產品序號（與 deviceId 二選一）
+  /// [nickname] - 設備暱稱（選填）
+  /// [age] - 使用者年齡（選填）
   Future<Map<String, dynamic>> bindDeviceToMapUser({
     required String userId,
-    required String deviceId,
+    String? deviceId,
+    String? deviceName,
+    String? nickname,
+    int? age,
   }) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/bindDeviceToMapUser'),
-      headers: await _getHeaders(),
-      body: jsonEncode({
-        'userId': userId,
-        'deviceId': deviceId,
-      }),
-    );
+    final body = <String, dynamic>{'userId': userId};
 
-    return jsonDecode(response.body);
+    // deviceId 和 deviceName 二選一
+    if (deviceId != null) {
+      body['deviceId'] = deviceId;
+    } else if (deviceName != null) {
+      body['deviceName'] = deviceName;
+    }
+
+    // 選填參數
+    if (nickname != null && nickname.isNotEmpty) {
+      body['nickname'] = nickname;
+    }
+    if (age != null) {
+      body['age'] = age;
+    }
+
+    print('ApiService: 綁定設備請求');
+    print('  URL: $_bindDeviceToMapUserUrl');
+    print('  Body: ${jsonEncode(body)}');
+
+    try {
+      final response = await http.post(
+        Uri.parse(_bindDeviceToMapUserUrl),
+        headers: await _getHeaders(),
+        body: jsonEncode(body),
+      );
+
+      print('ApiService: 綁定設備回應');
+      print('  Status Code: ${response.statusCode}');
+      print('  Body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        // 處理 HTTP 錯誤
+        try {
+          final errorBody = jsonDecode(response.body);
+          return {
+            'success': false,
+            'error': errorBody['error'] ?? 'HTTP ${response.statusCode}: ${response.reasonPhrase}',
+          };
+        } catch (e) {
+          return {
+            'success': false,
+            'error': 'HTTP ${response.statusCode}: ${response.reasonPhrase}',
+          };
+        }
+      }
+    } catch (e) {
+      print('ApiService: 綁定設備錯誤 - $e');
+      return {
+        'success': false,
+        'error': '網路錯誤: $e',
+      };
+    }
   }
 
   /// 解綁設備
@@ -97,11 +170,9 @@ class ApiService {
     required String userId,
   }) async {
     final response = await http.post(
-      Uri.parse('$baseUrl/unbindDeviceFromMapUser'),
+      Uri.parse(_unbindDeviceFromMapUserUrl),
       headers: await _getHeaders(),
-      body: jsonEncode({
-        'userId': userId,
-      }),
+      body: jsonEncode({'userId': userId}),
     );
 
     return jsonDecode(response.body);
@@ -110,7 +181,7 @@ class ApiService {
   /// 取得所有公共接收點
   Future<Map<String, dynamic>> getPublicGateways() async {
     final response = await http.get(
-      Uri.parse('$baseUrl/getPublicGateways'),
+      Uri.parse(_getPublicGatewaysUrl),
       headers: await _getHeaders(requireAuth: false),
     );
 
@@ -125,7 +196,7 @@ class ApiService {
     required String notificationMessage,
   }) async {
     final response = await http.post(
-      Uri.parse('$baseUrl/addMapUserNotificationPoint'),
+      Uri.parse(_addMapUserNotificationPointUrl),
       headers: await _getHeaders(),
       body: jsonEncode({
         'userId': userId,
@@ -143,7 +214,7 @@ class ApiService {
     required String userId,
   }) async {
     final response = await http.get(
-      Uri.parse('$baseUrl/getMapUserNotificationPoints?userId=$userId'),
+      Uri.parse('$_getMapUserNotificationPointsUrl?userId=$userId'),
       headers: await _getHeaders(),
     );
 
@@ -158,12 +229,13 @@ class ApiService {
     bool? isActive,
   }) async {
     final response = await http.put(
-      Uri.parse('$baseUrl/updateMapUserNotificationPoint'),
+      Uri.parse(_updateMapUserNotificationPointUrl),
       headers: await _getHeaders(),
       body: jsonEncode({
         'pointId': pointId,
         if (name != null) 'name': name,
-        if (notificationMessage != null) 'notificationMessage': notificationMessage,
+        if (notificationMessage != null)
+          'notificationMessage': notificationMessage,
         if (isActive != null) 'isActive': isActive,
       }),
     );
@@ -176,18 +248,16 @@ class ApiService {
     required String pointId,
   }) async {
     final response = await http.post(
-      Uri.parse('$baseUrl/removeMapUserNotificationPoint'),
+      Uri.parse(_removeMapUserNotificationPointUrl),
       headers: await _getHeaders(),
-      body: jsonEncode({
-        'pointId': pointId,
-      }),
+      body: jsonEncode({'pointId': pointId}),
     );
 
     return jsonDecode(response.body);
   }
 
   /// 取得設備活動記錄
-  /// 
+  ///
   /// [userId] - 用戶 ID
   /// [startTime] - 開始時間 (milliseconds since epoch)
   /// [endTime] - 結束時間 (milliseconds since epoch)
@@ -205,26 +275,24 @@ class ApiService {
       if (limit != null) 'limit': limit.toString(),
     };
 
-    final uri = Uri.parse('$baseUrl/getMapUserActivities')
-        .replace(queryParameters: queryParams);
+    final uri = Uri.parse(
+      _getMapUserActivitiesUrl,
+    ).replace(queryParameters: queryParams);
 
-    final response = await http.get(
-      uri,
-      headers: await _getHeaders(),
-    );
+    final response = await http.get(uri, headers: await _getHeaders());
 
     return jsonDecode(response.body);
   }
 
   /// 取得用戶完整資料
-  /// 
+  ///
   /// 包含基本資訊、綁定設備、通知點位列表
   /// [userId] - 用戶 ID
   Future<Map<String, dynamic>> getMapUserProfile({
     required String userId,
   }) async {
     final response = await http.get(
-      Uri.parse('$baseUrl/getMapUserProfile?userId=$userId'),
+      Uri.parse('$_getMapUserProfileUrl?userId=$userId'),
       headers: await _getHeaders(),
     );
 
