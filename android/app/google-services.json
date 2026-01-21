@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "290555063879",
+    "project_id": "safe-net-tw",
+    "storage_bucket": "safe-net-tw.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:290555063879:android:5fd7823bbdd780f6bd4b62",
+        "android_client_info": {
+          "package_name": "com.app.safe_net"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCSP4QfVhkIv0zBThTy25sjRtnMcw-UY_E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
