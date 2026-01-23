@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import '../../services/tab_navigation_service.dart';
 import '../../utils/constants.dart';
 import 'map_tab.dart';
@@ -31,6 +32,15 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
+  /// 處理 tab 點擊事件
+  void _onTabTapped(int index) {
+    // 每次切換到首頁都重新整理地圖
+    if (index == 0) {
+      debugPrint('HomeScreen: 切換到首頁，重新整理地圖');
+      MapTab.refresh();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return CupertinoTabScaffold(
@@ -43,18 +53,19 @@ class _HomeScreenState extends State<HomeScreen> {
         border: const Border(
           top: BorderSide(color: AppConstants.borderColor, width: 0.5),
         ),
+        onTap: _onTabTapped,
         items: const [
           BottomNavigationBarItem(
             icon: Padding(
               padding: EdgeInsets.only(top: 4),
-              child: Icon(CupertinoIcons.map_fill),
+              child: Icon(Icons.map_rounded),
             ),
             label: '首頁',
           ),
           BottomNavigationBarItem(
             icon: Padding(
               padding: EdgeInsets.only(top: 4),
-              child: Icon(CupertinoIcons.person_fill),
+              child: Icon(Icons.person_rounded),
             ),
             label: '個人資料',
           ),
@@ -63,11 +74,11 @@ class _HomeScreenState extends State<HomeScreen> {
       tabBuilder: (context, index) {
         switch (index) {
           case 0:
-            return const MapTab();
+            return MapTab(key: MapTab.globalKey);
           case 1:
             return const ProfileTab();
           default:
-            return const MapTab();
+            return MapTab(key: MapTab.globalKey);
         }
       },
     );

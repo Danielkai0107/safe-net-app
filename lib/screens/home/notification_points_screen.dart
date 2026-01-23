@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import '../../models/notification_point.dart';
@@ -14,7 +15,8 @@ class NotificationPointsScreen extends StatefulWidget {
   const NotificationPointsScreen({super.key});
 
   @override
-  State<NotificationPointsScreen> createState() => _NotificationPointsScreenState();
+  State<NotificationPointsScreen> createState() =>
+      _NotificationPointsScreenState();
 }
 
 class _NotificationPointsScreenState extends State<NotificationPointsScreen> {
@@ -22,7 +24,7 @@ class _NotificationPointsScreenState extends State<NotificationPointsScreen> {
 
   Future<void> _handleRemove(NotificationPoint point) async {
     if (_removingPointId != null) return; // 防止重複提交
-    
+
     final confirmed = await Helpers.showConfirmDialog(
       context,
       '移除通知點位',
@@ -93,187 +95,232 @@ class _NotificationPointsScreenState extends State<NotificationPointsScreen> {
     Navigator.of(context).pop();
   }
 
-
   @override
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
       backgroundColor: AppConstants.backgroundColor,
-      navigationBar: CupertinoNavigationBar(
-        backgroundColor: AppConstants.backgroundColor,
-        border: null,
-        middle: const Text('通知點位'),
-        leading: CupertinoButton(
-          padding: EdgeInsets.zero,
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Icon(CupertinoIcons.back),
-        ),
-      ),
       child: SafeArea(
-        child: Consumer<UserProvider>(
-          builder: (context, userProvider, child) {
-            final notificationPoints =
-                userProvider.userProfile?.notificationPoints ?? [];
-
-            if (notificationPoints.isEmpty) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      CupertinoIcons.location,
-                      size: 64,
-                      color: AppConstants.textColor.withOpacity(0.3),
-                    ),
-                    const SizedBox(height: AppConstants.paddingMedium),
-                    Text(
-                      '尚未設定任何通知點位',
-                      style: TextStyle(
-                        fontSize: AppConstants.fontSizeLarge,
-                        color: AppConstants.textColor.withOpacity(0.5),
+        child: Column(
+          children: [
+            // 自定義 AppBar
+            Container(
+              height: 60,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              color: AppConstants.backgroundColor,
+              child: Row(
+                children: [
+                  // 返回按鈕（靠左）
+                  GestureDetector(
+                    onTap: () => Navigator.of(context).pop(),
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: AppConstants.cardColor,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: AppConstants.borderColor,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.arrow_back_rounded,
+                        size: 22,
+                        color: CupertinoColors.systemGrey,
                       ),
                     ),
-                    const SizedBox(height: AppConstants.paddingSmall),
-                    Text(
-                      '在地圖上點擊接收點即可新增',
-                      style: TextStyle(
-                        fontSize: AppConstants.fontSizeMedium,
-                        color: AppConstants.textColor.withOpacity(0.5),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }
-
-            return ListView.builder(
-              padding: const EdgeInsets.all(AppConstants.paddingMedium),
-              itemCount: notificationPoints.length,
-              itemBuilder: (context, index) {
-                final point = notificationPoints[index];
-                return Container(
-                  margin: const EdgeInsets.only(
-                    bottom: AppConstants.paddingMedium,
                   ),
-                  padding: const EdgeInsets.all(AppConstants.paddingMedium),
-                  decoration: BoxDecoration(
-                    color: AppConstants.cardColor,
-                    borderRadius: BorderRadius.circular(
-                      AppConstants.borderRadius,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: CupertinoColors.systemGrey.withOpacity(0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, 2),
+                  // 標題（置中）
+                  Expanded(
+                    child: Transform.translate(
+                      offset: const Offset(0, -6),
+                      child: const Text(
+                        '通知點位',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: AppConstants.textColor,
+                        ),
                       ),
-                    ],
+                    ),
                   ),
-                  child: Row(
-                    children: [
-                      // 圖示
-                      Container(
-                        width: 50,
-                        height: 50,
+                  // 佔位（保持標題置中）
+                  const SizedBox(width: 44),
+                ],
+              ),
+            ),
+            // 內容區域
+            Expanded(
+              child: Consumer<UserProvider>(
+                builder: (context, userProvider, child) {
+                  final notificationPoints =
+                      userProvider.userProfile?.notificationPoints ?? [];
+
+                  if (notificationPoints.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.location_on_outlined,
+                            size: 64,
+                            color: AppConstants.textColor.withOpacity(0.3),
+                          ),
+                          const SizedBox(height: AppConstants.paddingMedium),
+                          Text(
+                            '尚未設定任何通知點位',
+                            style: TextStyle(
+                              fontSize: AppConstants.fontSizeLarge,
+                              color: AppConstants.textColor.withOpacity(0.5),
+                            ),
+                          ),
+                          const SizedBox(height: AppConstants.paddingSmall),
+                          Text(
+                            '在地圖上點擊接收點即可新增',
+                            style: TextStyle(
+                              fontSize: AppConstants.fontSizeMedium,
+                              color: AppConstants.textColor.withOpacity(0.5),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    padding: const EdgeInsets.all(AppConstants.paddingMedium),
+                    itemCount: notificationPoints.length,
+                    itemBuilder: (context, index) {
+                      final point = notificationPoints[index];
+                      return Container(
+                        margin: const EdgeInsets.only(
+                          bottom: AppConstants.paddingMedium,
+                        ),
+                        padding: const EdgeInsets.all(
+                          AppConstants.paddingMedium,
+                        ),
                         decoration: BoxDecoration(
-                          color: AppConstants.secondaryColor.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(25),
+                          color: AppConstants.cardColor,
+                          borderRadius: BorderRadius.circular(
+                            AppConstants.borderRadius,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: CupertinoColors.systemGrey.withOpacity(
+                                0.1,
+                              ),
+                              blurRadius: 10,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
-                        child: const Icon(
-                          CupertinoIcons.bell_fill,
-                          color: AppConstants.secondaryColor,
-                          size: 24,
-                        ),
-                      ),
-                      const SizedBox(width: AppConstants.paddingMedium),
-                      // 資訊
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        child: Row(
                           children: [
-                            Text(
-                              point.name,
-                              style: const TextStyle(
-                                fontSize: AppConstants.fontSizeLarge,
-                                fontWeight: FontWeight.bold,
-                                color: AppConstants.textColor,
+                            // 圖示
+                            Container(
+                              width: 50,
+                              height: 50,
+                              decoration: BoxDecoration(
+                                color: AppConstants.secondaryColor.withOpacity(
+                                  0.2,
+                                ),
+                                borderRadius: BorderRadius.circular(25),
+                              ),
+                              child: const Icon(
+                                Icons.notifications_rounded,
+                                color: AppConstants.secondaryColor,
+                                size: 24,
                               ),
                             ),
-                            const SizedBox(height: 4),
-                            if (point.gateway != null) ...[
-                              Row(
+                            const SizedBox(width: AppConstants.paddingMedium),
+                            // 資訊
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Icon(
-                                    CupertinoIcons.location_fill,
-                                    size: 14,
-                                    color: AppConstants.textColor.withOpacity(
-                                      0.6,
+                                  Text(
+                                    point.name,
+                                    style: const TextStyle(
+                                      fontSize: AppConstants.fontSizeLarge,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppConstants.textColor,
                                     ),
                                   ),
-                                  const SizedBox(width: 4),
-                                  Expanded(
-                                    child: Text(
-                                      point.gateway!.name,
-                                      style: TextStyle(
-                                        fontSize: AppConstants.fontSizeSmall,
-                                        color: AppConstants.textColor
-                                            .withOpacity(0.6),
+                                  const SizedBox(height: 4),
+                                  if (point.gateway != null) ...[
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            point.gateway!.name,
+                                            style: TextStyle(
+                                              fontSize:
+                                                  AppConstants.fontSizeSmall,
+                                              color: AppConstants.textColor
+                                                  .withOpacity(0.6),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 2),
+                                  ],
+                                  Text(
+                                    point.notificationMessage,
+                                    style: TextStyle(
+                                      fontSize: AppConstants.fontSizeSmall,
+                                      color: AppConstants.textColor.withOpacity(
+                                        0.8,
                                       ),
+                                      fontStyle: FontStyle.italic,
                                     ),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 2),
-                            ],
-                            Text(
-                              point.notificationMessage,
-                              style: TextStyle(
-                                fontSize: AppConstants.fontSizeSmall,
-                                color: AppConstants.textColor.withOpacity(0.8),
-                                fontStyle: FontStyle.italic,
+                            ),
+                            // 查看位置按鈕
+                            CupertinoButton(
+                              padding: EdgeInsets.zero,
+                              onPressed: _removingPointId != null
+                                  ? null
+                                  : () => _handleViewLocation(point),
+                              child: Icon(
+                                Icons.location_on_outlined,
+                                color: _removingPointId != null
+                                    ? AppConstants.primaryColor.withOpacity(0.3)
+                                    : AppConstants.primaryColor,
+                                size: 24,
                               ),
+                            ),
+                            // 刪除按鈕
+                            CupertinoButton(
+                              padding: EdgeInsets.zero,
+                              onPressed: _removingPointId != null
+                                  ? null
+                                  : () => _handleRemove(point),
+                              child: _removingPointId == point.id
+                                  ? const CupertinoActivityIndicator(
+                                      color: AppConstants.secondaryColor,
+                                    )
+                                  : Icon(
+                                      Icons.delete_rounded,
+                                      color: _removingPointId != null
+                                          ? AppConstants.secondaryColor
+                                                .withOpacity(0.3)
+                                          : AppConstants.secondaryColor,
+                                      size: 24,
+                                    ),
                             ),
                           ],
                         ),
-                      ),
-                      // 查看位置按鈕
-                      CupertinoButton(
-                        padding: EdgeInsets.zero,
-                        onPressed: _removingPointId != null 
-                            ? null 
-                            : () => _handleViewLocation(point),
-                        child: Icon(
-                          CupertinoIcons.location,
-                          color: _removingPointId != null
-                              ? AppConstants.primaryColor.withOpacity(0.3)
-                              : AppConstants.primaryColor,
-                          size: 24,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      // 刪除按鈕
-                      CupertinoButton(
-                        padding: EdgeInsets.zero,
-                        onPressed: _removingPointId != null 
-                            ? null 
-                            : () => _handleRemove(point),
-                        child: _removingPointId == point.id
-                            ? const CupertinoActivityIndicator(
-                                color: AppConstants.secondaryColor,
-                              )
-                            : Icon(
-                                CupertinoIcons.trash,
-                                color: _removingPointId != null
-                                    ? AppConstants.secondaryColor.withOpacity(0.3)
-                                    : AppConstants.secondaryColor,
-                                size: 24,
-                              ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            );
-          },
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );

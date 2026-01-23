@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
@@ -48,8 +49,8 @@ class _BindDeviceDialogState extends State<BindDeviceDialog> {
 
   Future<void> _handleBind() async {
     if (_isLoading) return; // 防止重複提交
-    
-    final deviceIdOrName = _deviceIdController.text.trim();
+
+    final deviceIdOrName = _deviceIdController.text.trim().toUpperCase();
     final nickname = _nicknameController.text.trim();
     final ageText = _ageController.text.trim();
 
@@ -82,15 +83,15 @@ class _BindDeviceDialogState extends State<BindDeviceDialog> {
       return;
     }
 
-    // 判斷輸入的是產品序號（格式：1-1001）還是設備 ID
-    final isDeviceName =
-        deviceIdOrName.contains('-') &&
-        RegExp(r'^\d+-\d+$').hasMatch(deviceIdOrName);
+    // 判斷輸入的是設備 ID（Firestore 文檔 ID，通常 20 字符以上）還是產品序號
+    // 產品序號格式如：ABCDEF1234（英數字混合，通常較短）
+    // Firestore 文檔 ID 通常是 20 字符的隨機字串
+    final isDeviceId = deviceIdOrName.length >= 20;
 
     final success = await userProvider.bindDevice(
       userId: userId,
-      deviceId: isDeviceName ? null : deviceIdOrName,
-      deviceName: isDeviceName ? deviceIdOrName : null,
+      deviceId: isDeviceId ? deviceIdOrName : null,
+      deviceName: isDeviceId ? null : deviceIdOrName,
       nickname: nickname.isEmpty ? null : nickname,
       age: age,
       gender: _selectedGender,
@@ -110,9 +111,9 @@ class _BindDeviceDialogState extends State<BindDeviceDialog> {
         userId: userId,
         deviceId: userProvider.boundDevice?.id,
       );
-      
+
       if (!mounted) return;
-      
+
       Navigator.of(context).pop();
       Helpers.showSuccessDialog(context, '設備綁定成功');
     } else {
@@ -122,7 +123,7 @@ class _BindDeviceDialogState extends State<BindDeviceDialog> {
 
   Future<void> _handleUnbind() async {
     if (_isLoading) return; // 防止重複提交
-    
+
     final confirmed = await Helpers.showConfirmDialog(
       context,
       '解除綁定',
@@ -158,7 +159,7 @@ class _BindDeviceDialogState extends State<BindDeviceDialog> {
       // 解綁成功後，清空活動記錄
       final mapProvider = context.read<MapProvider>();
       mapProvider.clearActivities();
-      
+
       Navigator.of(context).pop();
       Helpers.showSuccessDialog(context, '設備已解除綁定');
     } else {
@@ -206,18 +207,9 @@ class _BindDeviceDialogState extends State<BindDeviceDialog> {
 
                 // 標題
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
                   child: Row(
                     children: [
-                      Icon(
-                        hasDevice
-                            ? CupertinoIcons.checkmark_circle_fill
-                            : CupertinoIcons.device_phone_portrait,
-                        size: 28,
-                        color: hasDevice
-                            ? AppConstants.primaryColor
-                            : AppConstants.textColor.withOpacity(0.6),
-                      ),
                       const SizedBox(width: 12),
                       Text(
                         hasDevice ? '設備資訊' : '綁定設備',
@@ -251,7 +243,7 @@ class _BindDeviceDialogState extends State<BindDeviceDialog> {
                         Row(
                           children: [
                             Icon(
-                              CupertinoIcons.device_phone_portrait,
+                              Icons.smartphone_rounded,
                               size: 18,
                               color: AppConstants.primaryColor,
                             ),
@@ -279,7 +271,10 @@ class _BindDeviceDialogState extends State<BindDeviceDialog> {
                         ],
                         if (profile.boundDevice!.gender != null) ...[
                           const SizedBox(height: 8),
-                          _buildInfoRow('性別', _getGenderText(profile.boundDevice!.gender!)),
+                          _buildInfoRow(
+                            '性別',
+                            _getGenderText(profile.boundDevice!.gender!),
+                          ),
                         ],
                       ],
                     ),
@@ -342,13 +337,14 @@ class _BindDeviceDialogState extends State<BindDeviceDialog> {
                                     child: Image.asset(
                                       'assets/avatar/$_selectedAvatar',
                                       fit: BoxFit.cover,
-                                      errorBuilder: (context, error, stackTrace) {
-                                        return const Icon(
-                                          CupertinoIcons.person_circle_fill,
-                                          size: 48,
-                                          color: AppConstants.primaryColor,
-                                        );
-                                      },
+                                      errorBuilder:
+                                          (context, error, stackTrace) {
+                                            return const Icon(
+                                              Icons.account_circle_rounded,
+                                              size: 48,
+                                              color: AppConstants.primaryColor,
+                                            );
+                                          },
                                     ),
                                   ),
                                 ),
@@ -365,7 +361,7 @@ class _BindDeviceDialogState extends State<BindDeviceDialog> {
                                 ),
                                 // 箭頭
                                 const Icon(
-                                  CupertinoIcons.chevron_forward,
+                                  Icons.chevron_right_rounded,
                                   color: CupertinoColors.systemGrey2,
                                   size: 20,
                                 ),
@@ -374,53 +370,23 @@ class _BindDeviceDialogState extends State<BindDeviceDialog> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        CupertinoTextField(
-                          controller: _deviceIdController,
-                          focusNode: _deviceIdFocusNode,
-                          placeholder: '產品序號（例如：1-1001）*',
-                          padding: const EdgeInsets.all(14),
-                          textInputAction: TextInputAction.next,
-                          decoration: BoxDecoration(
-                            color: CupertinoColors.white,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        CupertinoTextField(
-                          controller: _nicknameController,
-                          placeholder: '暱稱（選填）',
-                          padding: const EdgeInsets.all(14),
-                          textInputAction: TextInputAction.next,
-                          decoration: BoxDecoration(
-                            color: CupertinoColors.white,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        CupertinoTextField(
-                          controller: _ageController,
-                          placeholder: '年齡（選填）',
-                          keyboardType: TextInputType.number,
-                          padding: const EdgeInsets.all(14),
-                          textInputAction: TextInputAction.done,
-                          decoration: BoxDecoration(
-                            color: CupertinoColors.white,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
                         // 性別選擇
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Padding(
-                              padding: const EdgeInsets.only(left: 4, bottom: 8),
+                              padding: const EdgeInsets.only(
+                                left: 4,
+                                bottom: 8,
+                              ),
                               child: Text(
                                 '性別（選填）',
                                 style: TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w500,
-                                  color: AppConstants.textColor.withOpacity(0.7),
+                                  color: AppConstants.textColor.withOpacity(
+                                    0.7,
+                                  ),
                                 ),
                               ),
                             ),
@@ -457,30 +423,39 @@ class _BindDeviceDialogState extends State<BindDeviceDialog> {
                           ],
                         ),
                         const SizedBox(height: 12),
-                        Container(
-                          padding: const EdgeInsets.all(12),
+                        CupertinoTextField(
+                          controller: _deviceIdController,
+                          focusNode: _deviceIdFocusNode,
+                          placeholder: '產品序號（例如：1-1001）*',
+                          padding: const EdgeInsets.all(14),
+                          textInputAction: TextInputAction.next,
+                          textCapitalization: TextCapitalization.characters,
                           decoration: BoxDecoration(
-                            color: AppConstants.secondaryColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
+                            color: CupertinoColors.white,
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                CupertinoIcons.info_circle,
-                                size: 16,
-                                color: AppConstants.secondaryColor,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  '請輸入設備上的產品序號（格式：1-1001）',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: AppConstants.secondaryColor,
-                                  ),
-                                ),
-                              ),
-                            ],
+                        ),
+                        const SizedBox(height: 12),
+                        CupertinoTextField(
+                          controller: _nicknameController,
+                          placeholder: '暱稱（選填）',
+                          padding: const EdgeInsets.all(14),
+                          textInputAction: TextInputAction.next,
+                          decoration: BoxDecoration(
+                            color: CupertinoColors.white,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        CupertinoTextField(
+                          controller: _ageController,
+                          placeholder: '年齡（選填）',
+                          keyboardType: TextInputType.number,
+                          padding: const EdgeInsets.all(14),
+                          textInputAction: TextInputAction.done,
+                          decoration: BoxDecoration(
+                            color: CupertinoColors.white,
+                            borderRadius: BorderRadius.circular(10),
                           ),
                         ),
                       ],
@@ -499,7 +474,7 @@ class _BindDeviceDialogState extends State<BindDeviceDialog> {
                     child: Column(
                       children: [
                         Icon(
-                          CupertinoIcons.device_phone_portrait,
+                          Icons.smartphone_rounded,
                           size: 48,
                           color: AppConstants.textColor.withOpacity(0.3),
                         ),
@@ -534,7 +509,7 @@ class _BindDeviceDialogState extends State<BindDeviceDialog> {
                       if (!hasDevice && !_showBindForm)
                         _buildActionButton(
                           label: '開始綁定設備',
-                          icon: CupertinoIcons.device_phone_portrait,
+                          icon: Icons.smartphone_rounded,
                           color: AppConstants.primaryColor,
                           onPressed: _showFormAndFocus,
                           showLoading: false,
@@ -546,7 +521,7 @@ class _BindDeviceDialogState extends State<BindDeviceDialog> {
                             Expanded(
                               child: _buildActionButton(
                                 label: '取消',
-                                icon: CupertinoIcons.xmark,
+                                icon: Icons.close_rounded,
                                 color: CupertinoColors.systemGrey,
                                 onPressed: () {
                                   if (!_isLoading) {
@@ -566,7 +541,7 @@ class _BindDeviceDialogState extends State<BindDeviceDialog> {
                             Expanded(
                               child: _buildActionButton(
                                 label: '確認綁定',
-                                icon: CupertinoIcons.checkmark_alt,
+                                icon: Icons.check_rounded,
                                 color: AppConstants.primaryColor,
                                 onPressed: _handleBind,
                                 showLoading: _isLoading,
@@ -579,7 +554,7 @@ class _BindDeviceDialogState extends State<BindDeviceDialog> {
                       if (hasDevice)
                         _buildActionButton(
                           label: '解除設備綁定',
-                          icon: CupertinoIcons.xmark_circle,
+                          icon: Icons.cancel_rounded,
                           color: CupertinoColors.systemRed,
                           onPressed: _handleUnbind,
                           showLoading: _isLoading,
@@ -589,7 +564,7 @@ class _BindDeviceDialogState extends State<BindDeviceDialog> {
 
                       _buildActionButton(
                         label: '關閉',
-                        icon: CupertinoIcons.xmark_circle,
+                        icon: Icons.cancel_rounded,
                         color: CupertinoColors.systemGrey2,
                         onPressed: () => Navigator.of(context).pop(),
                         outlined: true,

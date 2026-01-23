@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import '../../utils/constants.dart';
 
 /// 頭像選擇器彈窗
@@ -48,7 +49,7 @@ class AvatarPickerDialog extends StatelessWidget {
               child: Row(
                 children: [
                   Icon(
-                    CupertinoIcons.person_crop_circle_fill,
+                    Icons.account_circle_rounded,
                     size: 28,
                     color: AppConstants.primaryColor,
                   ),
@@ -117,7 +118,7 @@ class AvatarPickerDialog extends StatelessWidget {
                             fit: BoxFit.cover,
                             errorBuilder: (context, error, stackTrace) {
                               return const Icon(
-                                CupertinoIcons.person_circle_fill,
+                                Icons.account_circle_rounded,
                                 size: 48,
                                 color: AppConstants.textColor,
                               );
@@ -154,7 +155,7 @@ class AvatarPickerDialog extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
-                        CupertinoIcons.xmark,
+                        Icons.close_rounded,
                         size: 20,
                         color: CupertinoColors.systemGrey,
                       ),

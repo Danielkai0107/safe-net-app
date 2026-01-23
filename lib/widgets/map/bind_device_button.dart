@@ -1,7 +1,9 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
+import '../../screens/auth/login_screen.dart';
 import '../../utils/constants.dart';
 import '../dialogs/bind_device_dialog.dart';
 
@@ -22,16 +24,24 @@ class BindDeviceButton extends StatelessWidget {
       child: GestureDetector(
         onTap: () {
           if (!isAuthenticated) {
-            // 未登入，顯示提示
+            // 未登入，顯示提示並提供登入選項
             showCupertinoDialog(
               context: context,
-              builder: (context) => CupertinoAlertDialog(
+              builder: (dialogContext) => CupertinoAlertDialog(
                 title: const Text('請先登入'),
                 content: const Text('綁定設備前需要先登入帳號'),
                 actions: [
                   CupertinoDialogAction(
-                    child: const Text('確定'),
-                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('取消'),
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                  ),
+                  CupertinoDialogAction(
+                    isDefaultAction: true,
+                    child: const Text('前往登入'),
+                    onPressed: () {
+                      Navigator.of(dialogContext).pop();
+                      LoginScreen.show(context);
+                    },
                   ),
                 ],
               ),
@@ -62,8 +72,8 @@ class BindDeviceButton extends StatelessWidget {
           ),
           child: Icon(
             hasDevice
-                ? CupertinoIcons.checkmark_circle_fill
-                : CupertinoIcons.device_phone_portrait,
+                ? Icons.check_circle_rounded
+                : Icons.smartphone_rounded,
             size: 28,
             color: hasDevice
                 ? CupertinoColors.white

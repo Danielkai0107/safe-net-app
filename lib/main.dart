@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -7,7 +8,6 @@ import 'firebase_options.dart';
 import 'providers/auth_provider.dart';
 import 'providers/map_provider.dart';
 import 'providers/user_provider.dart';
-import 'screens/auth/login_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'services/tab_navigation_service.dart';
 import 'utils/constants.dart';
@@ -65,6 +65,7 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
   bool _isCheckingAuth = true;
   String? _lastCheckedUserId;
   int _notificationDialogCount = 0; // 追蹤顯示的通知對話框數量
+  String _loadingStatus = '正在載入...'; // 載入進度狀態
 
   @override
   void initState() {
@@ -72,16 +73,57 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
     _initializeApp();
   }
 
-  /// 初始化 App - 檢查用戶狀態
+  /// 更新載入狀態顯示
+  void _updateLoadingStatus(String status) {
+    if (mounted) {
+      setState(() {
+        _loadingStatus = status;
+      });
+    }
+  }
+
+  /// 初始化 App - 統一載入所有必要資料
   Future<void> _initializeApp() async {
-    await _checkUserData();
+    try {
+      // 步驟 1：檢查用戶狀態
+      _updateLoadingStatus('檢查用戶狀態...');
+      final hasUser = await _checkUserData();
 
-    // 設置 Firebase Messaging
-    await _setupFirebaseMessaging();
+      // 步驟 2：載入地圖接收點（訪客和登入用戶都需要）
+      _updateLoadingStatus('載入接收點...');
+      final mapProvider = context.read<MapProvider>();
+      await mapProvider.loadGateways();
 
-    setState(() {
-      _isCheckingAuth = false;
-    });
+      // 步驟 3：如果已登入，載入通知點位
+      final authProvider = context.read<AuthProvider>();
+      if (hasUser && authProvider.user != null) {
+        final userId = authProvider.user!.uid;
+
+        _updateLoadingStatus('載入通知點位...');
+        await mapProvider.loadNotificationPoints(userId);
+
+        // 步驟 4：如果已綁定設備，啟動活動記錄監聽
+        final userProvider = context.read<UserProvider>();
+        if (userProvider.hasDevice) {
+          _updateLoadingStatus('啟動活動記錄監聽...');
+          mapProvider.startListeningToActivities(
+            userId: userId,
+            deviceId: userProvider.boundDevice?.id,
+          );
+        }
+      }
+
+      // 步驟 5：設置 Firebase Messaging
+      _updateLoadingStatus('設置通知服務...');
+      await _setupFirebaseMessaging();
+
+    } catch (e) {
+      debugPrint('初始化失敗: $e');
+    } finally {
+      setState(() {
+        _isCheckingAuth = false;
+      });
+    }
   }
 
   /// 檢查並載入用戶資料
@@ -208,7 +250,7 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
 
   void _showForegroundNotification(RemoteMessage message) {
     debugPrint('收到新的前景通知');
-    
+
     // 關閉所有現有的通知對話框
     if (_notificationDialogCount > 0) {
       debugPrint('關閉 $_notificationDialogCount 個舊通知對話框');
@@ -313,25 +355,37 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    // 正在檢查認證狀態，顯示 Loading
+    // 正在檢查認證狀態，顯示 Loading 和進度
     if (_isCheckingAuth) {
-      return const CupertinoPageScaffold(
+      return CupertinoPageScaffold(
         backgroundColor: AppConstants.backgroundColor,
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                CupertinoIcons.map_fill,
+              const Icon(
+                Icons.map_rounded,
                 size: 80,
                 color: AppConstants.primaryColor,
               ),
-              SizedBox(height: 24),
-              CupertinoActivityIndicator(radius: 14),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
+              const Text(
+                '安全網地圖',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: AppConstants.textColor,
+                ),
+              ),
+              const SizedBox(height: 32),
+              const CupertinoActivityIndicator(radius: 14),
+              const SizedBox(height: 16),
               Text(
-                '正在載入...',
-                style: TextStyle(fontSize: 16, color: AppConstants.textColor),
+                _loadingStatus,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: AppConstants.textColor.withOpacity(0.6),
+                ),
               ),
             ],
           ),
@@ -342,7 +396,6 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
     return Consumer2<AuthProvider, UserProvider>(
       builder: (context, authProvider, userProvider, child) {
         final isAuthenticated = authProvider.user != null;
-        final hasUserData = userProvider.userProfile != null;
 
         // 當用戶狀態改變時，重新檢查用戶資料
         if (isAuthenticated && authProvider.user!.uid != _lastCheckedUserId) {
@@ -352,14 +405,8 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
           });
         }
 
-        // 檢查登入狀態
-        if (!isAuthenticated || !hasUserData) {
-          // 未登入或後端無用戶資料，顯示登入頁面
-          return const LoginScreen();
-        } else {
-          // 已登入且有用戶資料，顯示主畫面
-          return const HomeScreen();
-        }
+        // 訪客模式：未登入也能直接看地圖
+        return const HomeScreen();
       },
     );
   }

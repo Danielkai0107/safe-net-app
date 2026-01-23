@@ -4,7 +4,7 @@ class Activity {
   final String deviceId;
   final String gatewayId;
   final String gatewayName;
-  final String? gatewayType; // "GENERAL", "BOUNDARY", "MOBILE"
+  final String? gatewayType; // "SCHOOL_ZONE", "SAFE_ZONE", "OBSERVE_ZONE", "INACTIVE"
   final String gatewayLocation;
   final DateTime timestamp;
   final int rssi;

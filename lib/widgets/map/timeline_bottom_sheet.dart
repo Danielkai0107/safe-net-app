@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -167,7 +168,7 @@ class _TimelineBottomSheetState extends State<TimelineBottomSheet> {
                                             color: AppConstants.primaryColor
                                                 .withOpacity(0.2),
                                             child: const Icon(
-                                              CupertinoIcons.person_fill,
+                                              Icons.person_rounded,
                                               color: AppConstants.primaryColor,
                                               size: 28,
                                             ),
@@ -256,7 +257,7 @@ class _TimelineBottomSheetState extends State<TimelineBottomSheet> {
           children: [
             const SizedBox(height: 40),
             Icon(
-              CupertinoIcons.location,
+              Icons.location_on_outlined,
               size: 64,
               color: AppConstants.textColor.withOpacity(0.3),
             ),
@@ -298,7 +299,7 @@ class _TimelineBottomSheetState extends State<TimelineBottomSheet> {
                   Row(
                     children: [
                       Icon(
-                        CupertinoIcons.info_circle_fill,
+                        Icons.info_rounded,
                         size: 20,
                         color: AppConstants.primaryColor,
                       ),
@@ -539,7 +540,7 @@ class _TimelineBottomSheetState extends State<TimelineBottomSheet> {
                         // 通知標記
                         if (hasNotificationPoint)
                           Icon(
-                            CupertinoIcons.bell_fill,
+                            Icons.notifications_rounded,
                             size: 14,
                             color: isLatest
                                 ? CupertinoColors.white

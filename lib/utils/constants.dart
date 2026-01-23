@@ -9,6 +9,12 @@ class AppConstants {
   static const Color textColor = Color(0xFF2C3E50); // 深灰
   static const Color cardColor = Color(0xFFFFFFFF); // 白色
   static const Color borderColor = Color(0xFFE0E0E0); // 邊框灰
+
+  // 守望點類型顏色
+  static const Color schoolZoneColor = Color(0xFFFF6A95); // 學校守望點 - 粉紅
+  static const Color safeZoneColor = Color(0xFF00CA80); // 可通知守望點 - 綠色
+  static const Color observeZoneColor = Color(0xFF00CCEA); // 僅紀錄守望點 - 藍色
+  static const Color inactiveZoneColor = Color(0xFFC4C4C4); // 準備中 - 灰色
   
   // 地圖預設位置（台北 101）
   static const double defaultLatitude = 25.0330;

@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import '../utils/constants.dart';
 
 /// 啟動畫面
@@ -30,7 +31,7 @@ class SplashScreen extends StatelessWidget {
                 ],
               ),
               child: const Icon(
-                CupertinoIcons.map_fill,
+                Icons.map_rounded,
                 size: 60,
                 color: AppConstants.primaryColor,
               ),

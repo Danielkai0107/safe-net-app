@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/constants.dart';
@@ -87,20 +88,62 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
       backgroundColor: AppConstants.backgroundColor,
-      navigationBar: CupertinoNavigationBar(
-        backgroundColor: AppConstants.backgroundColor,
-        border: null,
-        leading: CupertinoButton(
-          padding: EdgeInsets.zero,
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Icon(CupertinoIcons.back),
-        ),
-        middle: const Text('註冊'),
-      ),
       child: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppConstants.paddingLarge),
-          child: Column(
+        child: Column(
+          children: [
+            // 自定義 AppBar
+            Container(
+              height: 60,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              color: AppConstants.backgroundColor,
+              child: Row(
+                children: [
+                  // 返回按鈕（靠左）
+                  GestureDetector(
+                    onTap: () => Navigator.of(context).pop(),
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: AppConstants.cardColor,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: AppConstants.borderColor,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.arrow_back_rounded,
+                        size: 22,
+                        color: CupertinoColors.systemGrey,
+                      ),
+                    ),
+                  ),
+                  // 標題（置中）
+                  Expanded(
+                    child: Transform.translate(
+                      offset: const Offset(0, -6),
+                      child: const Text(
+                        '註冊',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: AppConstants.textColor,
+                        ),
+                      ),
+                    ),
+                  ),
+                  // 佔位（保持標題置中）
+                  const SizedBox(width: 44),
+                ],
+              ),
+            ),
+            // 內容區域
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(AppConstants.paddingLarge),
+                child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 20),
@@ -150,7 +193,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   prefix: const Padding(
                     padding: EdgeInsets.only(left: AppConstants.paddingMedium),
                     child: Icon(
-                      CupertinoIcons.person,
+                      Icons.person_rounded,
                       color: AppConstants.primaryColor,
                     ),
                   ),
@@ -181,7 +224,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   prefix: const Padding(
                     padding: EdgeInsets.only(left: AppConstants.paddingMedium),
                     child: Icon(
-                      CupertinoIcons.mail,
+                      Icons.email_rounded,
                       color: AppConstants.primaryColor,
                     ),
                   ),
@@ -212,7 +255,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   prefix: const Padding(
                     padding: EdgeInsets.only(left: AppConstants.paddingMedium),
                     child: Icon(
-                      CupertinoIcons.phone,
+                      Icons.phone_rounded,
                       color: AppConstants.primaryColor,
                     ),
                   ),
@@ -243,7 +286,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   prefix: const Padding(
                     padding: EdgeInsets.only(left: AppConstants.paddingMedium),
                     child: Icon(
-                      CupertinoIcons.lock,
+                      Icons.lock_rounded,
                       color: AppConstants.primaryColor,
                     ),
                   ),
@@ -256,8 +299,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     },
                     child: Icon(
                       _obscurePassword
-                          ? CupertinoIcons.eye
-                          : CupertinoIcons.eye_slash,
+                          ? Icons.visibility_rounded
+                          : Icons.visibility_off_rounded,
                       color: AppConstants.textColor.withOpacity(0.5),
                     ),
                   ),
@@ -288,7 +331,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   prefix: const Padding(
                     padding: EdgeInsets.only(left: AppConstants.paddingMedium),
                     child: Icon(
-                      CupertinoIcons.lock,
+                      Icons.lock_rounded,
                       color: AppConstants.primaryColor,
                     ),
                   ),
@@ -301,8 +344,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     },
                     child: Icon(
                       _obscureConfirmPassword
-                          ? CupertinoIcons.eye
-                          : CupertinoIcons.eye_slash,
+                          ? Icons.visibility_rounded
+                          : Icons.visibility_off_rounded,
                       color: AppConstants.textColor.withOpacity(0.5),
                     ),
                   ),
@@ -347,6 +390,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
             ],
           ),
+        ),
+            ),
+          ],
         ),
       ),
     );

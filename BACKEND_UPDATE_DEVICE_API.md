@@ -9,12 +9,14 @@
 **Method**: `POST`
 
 **Headers**:
+
 ```
 Content-Type: application/json
 Authorization: Bearer <Firebase_ID_Token>
 ```
 
 **Request Body**:
+
 ```json
 {
   "userId": "string (必填) - Map App 用戶 ID",
@@ -28,6 +30,7 @@ Authorization: Bearer <Firebase_ID_Token>
 ```
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -55,12 +58,14 @@ Authorization: Bearer <Firebase_ID_Token>
 **Method**: `POST`
 
 **Headers**:
+
 ```
 Content-Type: application/json
 Authorization: Bearer <Firebase_ID_Token>
 ```
 
 **Request Body**:
+
 ```json
 {
   "userId": "string (必填) - Map App 用戶 ID"
@@ -68,6 +73,7 @@ Authorization: Bearer <Firebase_ID_Token>
 ```
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -86,12 +92,14 @@ Authorization: Bearer <Firebase_ID_Token>
 **Method**: `POST`
 
 **Headers**:
+
 ```
 Content-Type: application/json
 Authorization: Bearer <Firebase_ID_Token>
 ```
 
 **Request Body**:
+
 ```json
 {
   "userId": "string (必填) - Map App 用戶 ID",
@@ -103,6 +111,7 @@ Authorization: Bearer <Firebase_ID_Token>
 ```
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -117,6 +126,7 @@ Authorization: Bearer <Firebase_ID_Token>
 ```
 
 **⚠️ 注意**：
+
 - `avatar` 更新到用戶資料（`mapAppUsers`）
 - `nickname`, `age`, `gender` 更新到設備資料（`devices`）
 - 如果用戶沒有綁定設備，只會更新 `avatar`
@@ -125,15 +135,15 @@ Authorization: Bearer <Firebase_ID_Token>
 
 ## 📋 欄位對照表
 
-| 欄位 | 類型 | 必填 | 說明 | 可用值 |
-|------|------|------|------|--------|
-| `userId` | string | ✅ | Map App 用戶 ID | - |
-| `deviceId` | string | ⭕ | 設備 ID（與 deviceName 二選一） | - |
-| `deviceName` | string | ⭕ | 產品序號（與 deviceId 二選一） | 例：`1-1001` |
-| `avatar` | string | ❌ | 頭像檔名 | 例：`01.png`, `02.png` |
-| `nickname` | string | ❌ | 設備暱稱 | 例：`爸爸的卡片` |
-| `age` | number | ❌ | 使用者年齡 | 0-150 |
-| `gender` | string | ❌ | 使用者性別 | `MALE`, `FEMALE`, `OTHER` |
+| 欄位         | 類型   | 必填 | 說明                            | 可用值                    |
+| ------------ | ------ | ---- | ------------------------------- | ------------------------- |
+| `userId`     | string | ✅   | Map App 用戶 ID                 | -                         |
+| `deviceId`   | string | ⭕   | 設備 ID（與 deviceName 二選一） | -                         |
+| `deviceName` | string | ⭕   | 產品序號（與 deviceId 二選一）  | 例：`1-1001`              |
+| `avatar`     | string | ❌   | 頭像檔名                        | 例：`01.png`, `02.png`    |
+| `nickname`   | string | ❌   | 設備暱稱                        | 例：`爸爸的卡片`          |
+| `age`        | number | ❌   | 使用者年齡                      | 0-150                     |
+| `gender`     | string | ❌   | 使用者性別                      | `MALE`, `FEMALE`, `OTHER` |
 
 ---
 
@@ -159,24 +169,24 @@ Authorization: Bearer <Firebase_ID_Token>
 
 ## ⚠️ 錯誤代碼
 
-| HTTP Status | 說明 |
-|-------------|------|
-| 400 | 缺少必填欄位 / 用戶未綁定設備 |
-| 401 | Token 無效或缺少 |
-| 403 | 無權限操作他人資料 |
-| 404 | 用戶或設備不存在 |
-| 500 | 伺服器錯誤 |
+| HTTP Status | 說明                          |
+| ----------- | ----------------------------- |
+| 400         | 缺少必填欄位 / 用戶未綁定設備 |
+| 401         | Token 無效或缺少              |
+| 403         | 無權限操作他人資料            |
+| 404         | 用戶或設備不存在              |
+| 500         | 伺服器錯誤                    |
 
 ---
 
 ## 📁 相關前端文件
 
-| 文件 | 說明 |
-|------|------|
-| `lib/services/api_service.dart` | API 調用實作 |
-| `lib/providers/user_provider.dart` | 狀態管理（含綁定流程） |
-| `lib/widgets/dialogs/bind_device_dialog.dart` | 綁定設備對話框 |
-| `lib/widgets/dialogs/avatar_picker_dialog.dart` | 頭像選擇器 |
+| 文件                                            | 說明                   |
+| ----------------------------------------------- | ---------------------- |
+| `lib/services/api_service.dart`                 | API 調用實作           |
+| `lib/providers/user_provider.dart`              | 狀態管理（含綁定流程） |
+| `lib/widgets/dialogs/bind_device_dialog.dart`   | 綁定設備對話框         |
+| `lib/widgets/dialogs/avatar_picker_dialog.dart` | 頭像選擇器             |
 
 ---
 

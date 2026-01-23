@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -142,32 +143,61 @@ class _HistoryTimelineScreenState extends State<HistoryTimelineScreen> {
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
       backgroundColor: AppConstants.backgroundColor,
-      navigationBar: CupertinoNavigationBar(
-        backgroundColor: AppConstants.backgroundColor,
-        border: null,
-        leading: CupertinoButton(
-          padding: EdgeInsets.zero,
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Icon(CupertinoIcons.back),
-        ),
-        middle: const Text('過去守護'),
-      ),
       child: SafeArea(
         child: Column(
           children: [
+            // 自定義 AppBar
+            Container(
+              height: 60,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              color: AppConstants.backgroundColor,
+              child: Row(
+                children: [
+                  // 返回按鈕（靠左）
+                  GestureDetector(
+                    onTap: () => Navigator.of(context).pop(),
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: AppConstants.cardColor,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: AppConstants.borderColor,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.arrow_back_rounded,
+                        size: 22,
+                        color: CupertinoColors.systemGrey,
+                      ),
+                    ),
+                  ),
+                  // 標題（置中）
+                  Expanded(
+                    child: Transform.translate(
+                      offset: const Offset(0, -6),
+                      child: const Text(
+                        '過去守護',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: AppConstants.textColor,
+                        ),
+                      ),
+                    ),
+                  ),
+                  // 佔位（保持標題置中）
+                  const SizedBox(width: 44),
+                ],
+              ),
+            ),
             // 日期 Tab 指示器
             Container(
               padding: const EdgeInsets.symmetric(
                 vertical: AppConstants.paddingMedium,
-              ),
-              decoration: const BoxDecoration(
-                color: AppConstants.cardColor,
-                border: Border(
-                  bottom: BorderSide(
-                    color: AppConstants.borderColor,
-                    width: 0.5,
-                  ),
-                ),
               ),
               child: Column(
                 children: [
@@ -175,7 +205,7 @@ class _HistoryTimelineScreenState extends State<HistoryTimelineScreen> {
                   Text(
                     Helpers.formatDateWithWeekday(_dates[_currentPageIndex]),
                     style: const TextStyle(
-                      fontSize: AppConstants.fontSizeLarge,
+                      fontSize: AppConstants.fontSizeXXLarge,
                       fontWeight: FontWeight.bold,
                       color: AppConstants.textColor,
                     ),
@@ -186,8 +216,8 @@ class _HistoryTimelineScreenState extends State<HistoryTimelineScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
-                        CupertinoIcons.chevron_left,
-                        size: 16,
+                        Icons.chevron_left_rounded,
+                        size: 20,
                         color: _currentPageIndex < _dates.length - 1
                             ? AppConstants.primaryColor
                             : AppConstants.textColor.withOpacity(0.3),
@@ -196,14 +226,14 @@ class _HistoryTimelineScreenState extends State<HistoryTimelineScreen> {
                       Text(
                         '第 ${_currentPageIndex + 1} / ${_dates.length} 天',
                         style: TextStyle(
-                          fontSize: AppConstants.fontSizeSmall,
+                          fontSize: AppConstants.fontSizeLarge,
                           color: AppConstants.textColor.withOpacity(0.6),
                         ),
                       ),
                       const SizedBox(width: AppConstants.paddingMedium),
                       Icon(
-                        CupertinoIcons.chevron_right,
-                        size: 16,
+                        Icons.chevron_right_rounded,
+                        size: 20,
                         color: _currentPageIndex > 0
                             ? AppConstants.primaryColor
                             : AppConstants.textColor.withOpacity(0.3),
@@ -247,7 +277,7 @@ class _HistoryTimelineScreenState extends State<HistoryTimelineScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              CupertinoIcons.moon_stars,
+              Icons.nightlight_rounded,
               size: 64,
               color: AppConstants.textColor.withOpacity(0.3),
             ),
@@ -407,7 +437,7 @@ class _HistoryTimelineScreenState extends State<HistoryTimelineScreen> {
                         // 通知標記
                         if (hasNotificationPoint)
                           const Icon(
-                            CupertinoIcons.bell_fill,
+                            Icons.notifications_rounded,
                             size: 14,
                             color: Color(0xFFFFC107), // 黃色
                           ),

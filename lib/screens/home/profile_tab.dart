@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/map_provider.dart';
@@ -7,6 +8,7 @@ import '../../providers/user_provider.dart';
 import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
 import '../../widgets/dialogs/avatar_picker_dialog.dart';
+import '../auth/login_screen.dart';
 import 'notification_points_screen.dart';
 import 'history_timeline_screen.dart';
 
@@ -20,6 +22,7 @@ class ProfileTab extends StatefulWidget {
 
 class _ProfileTabState extends State<ProfileTab> {
   bool _isUnbindingDevice = false;
+  bool _wasAuthenticated = false; // 追蹤上一次的登入狀態
 
   @override
   void initState() {
@@ -30,26 +33,36 @@ class _ProfileTabState extends State<ProfileTab> {
     });
   }
 
+  /// 檢查登入狀態變化並重新載入資料
+  void _checkAuthStateAndReload(bool isAuthenticated) {
+    if (isAuthenticated && !_wasAuthenticated) {
+      debugPrint('ProfileTab: 偵測到登入狀態變化，重新載入用戶資料');
+      _loadUserProfile();
+    }
+    _wasAuthenticated = isAuthenticated;
+  }
+
   Future<void> _loadUserProfile() async {
     final authProvider = context.read<AuthProvider>();
     debugPrint('ProfileTab: 開始載入用戶資料');
     debugPrint('ProfileTab: 是否已登入 = ${authProvider.isAuthenticated}');
-    
+
     if (authProvider.isAuthenticated) {
       final userId = authProvider.user?.uid;
       debugPrint('ProfileTab: userId = $userId');
-      
+
       if (userId != null) {
         final userProvider = context.read<UserProvider>();
         await userProvider.loadUserProfile(userId);
-        
+
+        // 同時載入通知點位
+        final mapProvider = context.read<MapProvider>();
+        await mapProvider.loadNotificationPoints(userId);
+
         if (userProvider.error != null) {
           debugPrint('ProfileTab: 載入錯誤 = ${userProvider.error}');
           if (mounted) {
-            Helpers.showErrorDialog(
-              context,
-              '載入用戶資料失敗: ${userProvider.error}',
-            );
+            Helpers.showErrorDialog(context, '載入用戶資料失敗: ${userProvider.error}');
           }
         } else {
           debugPrint('ProfileTab: 載入成功');
@@ -60,7 +73,7 @@ class _ProfileTabState extends State<ProfileTab> {
 
   Future<void> _handleUnbindDevice() async {
     if (_isUnbindingDevice) return; // 防止重複提交
-    
+
     final confirmed = await Helpers.showConfirmDialog(
       context,
       '移除設備',
@@ -98,19 +111,12 @@ class _ProfileTabState extends State<ProfileTab> {
       mapProvider.clearActivities();
       Helpers.showSuccessDialog(context, '設備已移除');
     } else {
-      Helpers.showErrorDialog(
-        context,
-        userProvider.error ?? '移除設備失敗',
-      );
+      Helpers.showErrorDialog(context, userProvider.error ?? '移除設備失敗');
     }
   }
 
   Future<void> _handleSignOut() async {
-    final confirmed = await Helpers.showConfirmDialog(
-      context,
-      '登出',
-      '確定要登出嗎？',
-    );
+    final confirmed = await Helpers.showConfirmDialog(context, '登出', '確定要登出嗎？');
 
     if (!confirmed || !mounted) return;
 
@@ -127,16 +133,95 @@ class _ProfileTabState extends State<ProfileTab> {
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
       backgroundColor: AppConstants.backgroundColor,
-      navigationBar: const CupertinoNavigationBar(
-        middle: Text('個人資料'),
+      navigationBar: CupertinoNavigationBar(
+        middle: const Text(
+          '個人資料',
+          style: TextStyle(fontSize: 20),
+        ),
         border: null,
         backgroundColor: AppConstants.backgroundColor,
+        padding: const EdgeInsetsDirectional.only(start: 16, end: 16, top: 8, bottom: 8),
       ),
       child: SafeArea(
         child: Consumer2<UserProvider, AuthProvider>(
           builder: (context, userProvider, authProvider, child) {
             final userProfile = userProvider.userProfile;
             final isLoading = userProvider.isLoading;
+            final isAuthenticated = authProvider.isAuthenticated;
+
+            // 檢查登入狀態變化並重新載入資料（使用 addPostFrameCallback 避免在 build 中觸發）
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _checkAuthStateAndReload(isAuthenticated);
+            });
+
+            // 未登入時顯示引導登入畫面
+            if (!isAuthenticated) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppConstants.paddingLarge),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          color: AppConstants.primaryColor.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.person_rounded,
+                          size: 50,
+                          color: AppConstants.primaryColor,
+                        ),
+                      ),
+                      const SizedBox(height: AppConstants.paddingLarge),
+                      const Text(
+                        '登入以查看個人資料',
+                        style: TextStyle(
+                          fontSize: AppConstants.fontSizeXLarge,
+                          fontWeight: FontWeight.bold,
+                          color: AppConstants.textColor,
+                        ),
+                      ),
+                      const SizedBox(height: AppConstants.paddingSmall),
+                      Text(
+                        '登入後可以綁定設備、設定通知點位\n並查看更多功能',
+                        style: TextStyle(
+                          fontSize: AppConstants.fontSizeMedium,
+                          color: AppConstants.textColor.withOpacity(0.6),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: AppConstants.paddingLarge),
+                      SizedBox(
+                        width: double.infinity,
+                        child: CupertinoButton(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: AppConstants.paddingMedium,
+                          ),
+                          color: AppConstants.primaryColor,
+                          borderRadius: BorderRadius.circular(
+                            AppConstants.borderRadius,
+                          ),
+                          onPressed: () {
+                            LoginScreen.show(context);
+                          },
+                          child: const Text(
+                            '登入 / 註冊',
+                            style: TextStyle(
+                              fontSize: AppConstants.fontSizeLarge,
+                              fontWeight: FontWeight.w600,
+                              color: CupertinoColors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
 
             if (isLoading) {
               return const Center(
@@ -150,7 +235,7 @@ class _ProfileTabState extends State<ProfileTab> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      CupertinoIcons.exclamationmark_triangle,
+                      Icons.warning_rounded,
                       size: 64,
                       color: AppConstants.secondaryColor.withOpacity(0.5),
                     ),
@@ -194,34 +279,8 @@ class _ProfileTabState extends State<ProfileTab> {
                   // 用戶資訊卡片
                   Container(
                     padding: const EdgeInsets.all(AppConstants.paddingLarge),
-                    decoration: BoxDecoration(
-                      color: AppConstants.cardColor,
-                      borderRadius: BorderRadius.circular(AppConstants.borderRadius),
-                      boxShadow: [
-                        BoxShadow(
-                          color: CupertinoColors.systemGrey.withOpacity(0.1),
-                          blurRadius: 10,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
                     child: Column(
                       children: [
-                        // 頭像
-                        Container(
-                          width: 80,
-                          height: 80,
-                          decoration: BoxDecoration(
-                            color: AppConstants.primaryColor.withOpacity(0.2),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            CupertinoIcons.person_fill,
-                            size: 40,
-                            color: AppConstants.primaryColor,
-                          ),
-                        ),
-                        const SizedBox(height: AppConstants.paddingMedium),
                         // 姓名
                         Text(
                           userProfile.name,
@@ -247,7 +306,7 @@ class _ProfileTabState extends State<ProfileTab> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(
-                                CupertinoIcons.phone,
+                                Icons.phone_rounded,
                                 size: 16,
                                 color: AppConstants.textColor.withOpacity(0.6),
                               ),
@@ -256,7 +315,9 @@ class _ProfileTabState extends State<ProfileTab> {
                                 userProfile.phone!,
                                 style: TextStyle(
                                   fontSize: AppConstants.fontSizeMedium,
-                                  color: AppConstants.textColor.withOpacity(0.6),
+                                  color: AppConstants.textColor.withOpacity(
+                                    0.6,
+                                  ),
                                 ),
                               ),
                             ],
@@ -274,7 +335,9 @@ class _ProfileTabState extends State<ProfileTab> {
                       padding: const EdgeInsets.all(AppConstants.paddingMedium),
                       decoration: BoxDecoration(
                         color: AppConstants.cardColor,
-                        borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                        borderRadius: BorderRadius.circular(
+                          AppConstants.borderRadius,
+                        ),
                         boxShadow: [
                           BoxShadow(
                             color: CupertinoColors.systemGrey.withOpacity(0.1),
@@ -291,23 +354,30 @@ class _ProfileTabState extends State<ProfileTab> {
                               // 頭像（可點擊更換）
                               GestureDetector(
                                 onTap: () async {
-                                  final currentAvatar = userProfile.boundDevice!.avatar ?? '01.png';
+                                  final currentAvatar =
+                                      userProfile.boundDevice!.avatar ??
+                                      '01.png';
                                   final selectedAvatar = await showAvatarPicker(
                                     context,
                                     currentAvatar: currentAvatar,
                                   );
-                                  
-                                  if (selectedAvatar != null && selectedAvatar != currentAvatar && mounted) {
-                                    final authProvider = context.read<AuthProvider>();
-                                    final userProvider = context.read<UserProvider>();
+
+                                  if (selectedAvatar != null &&
+                                      selectedAvatar != currentAvatar &&
+                                      mounted) {
+                                    final authProvider = context
+                                        .read<AuthProvider>();
+                                    final userProvider = context
+                                        .read<UserProvider>();
                                     final userId = authProvider.user?.uid;
-                                    
+
                                     if (userId != null) {
-                                      final success = await userProvider.updateDeviceInfo(
-                                        userId: userId,
-                                        avatar: selectedAvatar,
-                                      );
-                                      
+                                      final success = await userProvider
+                                          .updateDeviceInfo(
+                                            userId: userId,
+                                            avatar: selectedAvatar,
+                                          );
+
                                       if (mounted) {
                                         if (success) {
                                           Helpers.showSuccessDialog(
@@ -339,16 +409,19 @@ class _ProfileTabState extends State<ProfileTab> {
                                     child: Image.asset(
                                       'assets/avatar/${userProfile.boundDevice!.avatar ?? "01.png"}',
                                       fit: BoxFit.cover,
-                                      errorBuilder: (context, error, stackTrace) {
-                                        return Container(
-                                          color: AppConstants.primaryColor.withOpacity(0.2),
-                                          child: const Icon(
-                                            CupertinoIcons.person_fill,
-                                            color: AppConstants.primaryColor,
-                                            size: 28,
-                                          ),
-                                        );
-                                      },
+                                      errorBuilder:
+                                          (context, error, stackTrace) {
+                                            return Container(
+                                              color: AppConstants.primaryColor
+                                                  .withOpacity(0.2),
+                                              child: const Icon(
+                                                Icons.person_rounded,
+                                                color:
+                                                    AppConstants.primaryColor,
+                                                size: 28,
+                                              ),
+                                            );
+                                          },
                                     ),
                                   ),
                                 ),
@@ -366,7 +439,9 @@ class _ProfileTabState extends State<ProfileTab> {
                               ),
                               CupertinoButton(
                                 padding: EdgeInsets.zero,
-                                onPressed: _isUnbindingDevice ? null : _handleUnbindDevice,
+                                onPressed: _isUnbindingDevice
+                                    ? null
+                                    : _handleUnbindDevice,
                                 child: _isUnbindingDevice
                                     ? const CupertinoActivityIndicator(
                                         color: AppConstants.secondaryColor,
@@ -402,7 +477,9 @@ class _ProfileTabState extends State<ProfileTab> {
                           if (userProfile.boundDevice!.boundAt != null)
                             _buildInfoRow(
                               '綁定時間',
-                              Helpers.formatDateTime(userProfile.boundDevice!.boundAt!),
+                              Helpers.formatDateTime(
+                                userProfile.boundDevice!.boundAt!,
+                              ),
                             ),
                         ],
                       ),
@@ -414,7 +491,9 @@ class _ProfileTabState extends State<ProfileTab> {
                   Container(
                     decoration: BoxDecoration(
                       color: AppConstants.cardColor,
-                      borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                      borderRadius: BorderRadius.circular(
+                        AppConstants.borderRadius,
+                      ),
                       boxShadow: [
                         BoxShadow(
                           color: CupertinoColors.systemGrey.withOpacity(0.1),
@@ -442,7 +521,7 @@ class _ProfileTabState extends State<ProfileTab> {
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: const Icon(
-                              CupertinoIcons.time,
+                              Icons.access_time_rounded,
                               color: AppConstants.primaryColor,
                               size: 20,
                             ),
@@ -471,7 +550,7 @@ class _ProfileTabState extends State<ProfileTab> {
                             ),
                           ),
                           const Icon(
-                            CupertinoIcons.chevron_forward,
+                            Icons.chevron_right_rounded,
                             color: AppConstants.textColor,
                           ),
                         ],
@@ -485,7 +564,9 @@ class _ProfileTabState extends State<ProfileTab> {
                   Container(
                     decoration: BoxDecoration(
                       color: AppConstants.cardColor,
-                      borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                      borderRadius: BorderRadius.circular(
+                        AppConstants.borderRadius,
+                      ),
                       boxShadow: [
                         BoxShadow(
                           color: CupertinoColors.systemGrey.withOpacity(0.1),
@@ -499,7 +580,8 @@ class _ProfileTabState extends State<ProfileTab> {
                       onPressed: () {
                         Navigator.of(context).push(
                           CupertinoPageRoute(
-                            builder: (context) => const NotificationPointsScreen(),
+                            builder: (context) =>
+                                const NotificationPointsScreen(),
                           ),
                         );
                       },
@@ -509,11 +591,13 @@ class _ProfileTabState extends State<ProfileTab> {
                             width: 40,
                             height: 40,
                             decoration: BoxDecoration(
-                              color: AppConstants.secondaryColor.withOpacity(0.2),
+                              color: AppConstants.secondaryColor.withOpacity(
+                                0.2,
+                              ),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: const Icon(
-                              CupertinoIcons.bell_fill,
+                              Icons.notifications_rounded,
                               color: AppConstants.secondaryColor,
                               size: 20,
                             ),
@@ -535,14 +619,16 @@ class _ProfileTabState extends State<ProfileTab> {
                                   '已設定 ${userProfile.notificationPointCount} 個通知點位',
                                   style: TextStyle(
                                     fontSize: AppConstants.fontSizeSmall,
-                                    color: AppConstants.textColor.withOpacity(0.6),
+                                    color: AppConstants.textColor.withOpacity(
+                                      0.6,
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
                           ),
                           const Icon(
-                            CupertinoIcons.chevron_forward,
+                            Icons.chevron_right_rounded,
                             color: AppConstants.textColor,
                           ),
                         ],
@@ -558,13 +644,15 @@ class _ProfileTabState extends State<ProfileTab> {
                       vertical: AppConstants.paddingMedium,
                     ),
                     color: AppConstants.secondaryColor,
-                    borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                    borderRadius: BorderRadius.circular(
+                      AppConstants.borderRadius,
+                    ),
                     onPressed: _handleSignOut,
                     child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          CupertinoIcons.square_arrow_right,
+                          Icons.logout_rounded,
                           color: CupertinoColors.white,
                         ),
                         SizedBox(width: AppConstants.paddingSmall),

@@ -45,6 +45,12 @@ class MapProvider with ChangeNotifier {
   bool get isLoadingActivities => _isLoadingActivities;
   String? get error => _error;
 
+  /// 檢查接收點是否已載入
+  bool get hasGatewaysLoaded => _gateways.isNotEmpty;
+
+  /// 檢查通知點位是否已載入
+  bool get hasNotificationPointsLoaded => _notificationPoints.isNotEmpty;
+
   /// 設定地圖控制器
   void setMapController(GoogleMapController controller) {
     _mapController = controller;
@@ -109,6 +115,15 @@ class MapProvider with ChangeNotifier {
     }
   }
 
+  /// 載入接收點（如果尚未載入）
+  Future<void> loadGatewaysIfNeeded() async {
+    if (_gateways.isNotEmpty && !_isLoadingGateways) {
+      debugPrint('MapProvider: 接收點已存在，跳過載入');
+      return;
+    }
+    await loadGateways();
+  }
+
   /// 載入通知點位列表
   Future<void> loadNotificationPoints(String userId) async {
     _isLoadingNotificationPoints = true;
@@ -149,6 +164,23 @@ class MapProvider with ChangeNotifier {
     } finally {
       _isLoadingNotificationPoints = false;
       notifyListeners();
+    }
+  }
+
+  /// 載入通知點位（如果尚未載入）
+  Future<void> loadNotificationPointsIfNeeded(String userId) async {
+    if (_notificationPoints.isNotEmpty && !_isLoadingNotificationPoints) {
+      debugPrint('MapProvider: 通知點位已存在，跳過載入');
+      return;
+    }
+    await loadNotificationPoints(userId);
+  }
+
+  /// 強制重新載入所有資料
+  Future<void> forceReloadAll(String? userId) async {
+    await loadGateways();
+    if (userId != null) {
+      await loadNotificationPoints(userId);
     }
   }
 

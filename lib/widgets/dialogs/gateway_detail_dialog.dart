@@ -1,11 +1,13 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/gateway.dart';
 import '../../models/notification_point.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/map_provider.dart';
 import '../../providers/user_provider.dart';
+import '../../screens/auth/login_screen.dart';
 import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
 
@@ -255,7 +257,7 @@ class _GatewayDetailDialogState extends State<GatewayDetailDialog> {
                       Row(
                         children: [
                           Icon(
-                            CupertinoIcons.location_solid,
+                            Icons.location_on_rounded,
                             size: 16,
                             color: AppConstants.textColor.withOpacity(0.6),
                           ),
@@ -280,21 +282,49 @@ class _GatewayDetailDialogState extends State<GatewayDetailDialog> {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: CupertinoColors.systemGrey6,
+                              color: _getGatewayTypeColor(widget.gateway.type)
+                                  .withOpacity(0.15),
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: Text(
-                              widget.gateway.type == "GENERAL"
-                                  ? "一般接收點"
-                                  : widget.gateway.type == "BOUNDARY"
-                                  ? "邊界接收點"
-                                  : "移動接收點",
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                              ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  _getGatewayTypeIcon(widget.gateway.type),
+                                  size: 14,
+                                  color: _getGatewayTypeColor(widget.gateway.type),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  widget.gateway.typeLabel,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    color: _getGatewayTypeColor(widget.gateway.type),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
+                          if (widget.gateway.typeDescription.isNotEmpty)
+                            Container(
+                              margin: const EdgeInsets.only(left: 8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: CupertinoColors.systemGrey6,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                widget.gateway.typeDescription,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
                           if (widget.gateway.tenantId != null)
                             Container(
                               margin: const EdgeInsets.only(left: 8),
@@ -344,7 +374,7 @@ class _GatewayDetailDialogState extends State<GatewayDetailDialog> {
                         Row(
                           children: [
                             Icon(
-                              CupertinoIcons.bell_fill,
+                              Icons.notifications_rounded,
                               size: 18,
                               color: AppConstants.primaryColor,
                             ),
@@ -426,17 +456,57 @@ class _GatewayDetailDialogState extends State<GatewayDetailDialog> {
                       if (!isAuthenticated)
                         _buildActionButton(
                           label: '登入以設定通知',
-                          icon: CupertinoIcons.person_circle,
+                          icon: Icons.account_circle_rounded,
                           color: AppConstants.primaryColor,
-                          onPressed: () => Navigator.of(context).pop(),
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            LoginScreen.show(context);
+                          },
                         ),
 
-                      if (isAuthenticated && !isNotified && !_showAddForm)
+                      if (isAuthenticated &&
+                          !isNotified &&
+                          !_showAddForm &&
+                          widget.gateway.canAddNotification)
                         _buildActionButton(
                           label: '新增通知點位',
-                          icon: CupertinoIcons.bell_fill,
+                          icon: Icons.notifications_rounded,
                           color: AppConstants.primaryColor,
                           onPressed: _showFormAndFocus,
+                        ),
+
+                      // 不可新增通知點位的提示
+                      if (isAuthenticated &&
+                          !isNotified &&
+                          !widget.gateway.canAddNotification)
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          decoration: BoxDecoration(
+                            color: CupertinoColors.systemGrey5,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.info_outline_rounded,
+                                size: 20,
+                                color: CupertinoColors.systemGrey,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                widget.gateway.type == 'INACTIVE'
+                                    ? '此守望點準備中，暫不可設定通知'
+                                    : '此守望點僅記錄位置，不可設定通知',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                  color: CupertinoColors.systemGrey,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
 
                       if (isAuthenticated && !isNotified && _showAddForm) ...[
@@ -445,7 +515,7 @@ class _GatewayDetailDialogState extends State<GatewayDetailDialog> {
                             Expanded(
                               child: _buildActionButton(
                                 label: '取消',
-                                icon: CupertinoIcons.xmark,
+                                icon: Icons.close_rounded,
                                 color: CupertinoColors.systemGrey,
                                 onPressed: () {
                                   if (!_isLoading) {
@@ -463,7 +533,7 @@ class _GatewayDetailDialogState extends State<GatewayDetailDialog> {
                             Expanded(
                               child: _buildActionButton(
                                 label: '確認新增',
-                                icon: CupertinoIcons.checkmark_alt,
+                                icon: Icons.check_rounded,
                                 color: AppConstants.primaryColor,
                                 onPressed: _handleAddNotification,
                                 showLoading: _isLoading,
@@ -476,7 +546,7 @@ class _GatewayDetailDialogState extends State<GatewayDetailDialog> {
                       if (isAuthenticated && isNotified)
                         _buildActionButton(
                           label: '移除通知點位',
-                          icon: CupertinoIcons.bell_slash_fill,
+                          icon: Icons.notifications_off_rounded,
                           color: CupertinoColors.systemRed,
                           onPressed: _handleRemoveNotification,
                           showLoading: _isLoading,
@@ -486,7 +556,7 @@ class _GatewayDetailDialogState extends State<GatewayDetailDialog> {
 
                       _buildActionButton(
                         label: '關閉',
-                        icon: CupertinoIcons.xmark_circle,
+                        icon: Icons.cancel_rounded,
                         color: CupertinoColors.systemGrey2,
                         onPressed: () => Navigator.of(context).pop(),
                         outlined: true,
@@ -524,6 +594,30 @@ class _GatewayDetailDialogState extends State<GatewayDetailDialog> {
         ),
       ],
     );
+  }
+
+  Color _getGatewayTypeColor(String type) {
+    switch (type) {
+      case 'SCHOOL_ZONE':
+        return AppConstants.schoolZoneColor;
+      case 'SAFE_ZONE':
+        return AppConstants.primaryColor; // 使用 App 主色綠
+      case 'OBSERVE_ZONE':
+        return AppConstants.observeZoneColor;
+      case 'INACTIVE':
+        return AppConstants.inactiveZoneColor;
+      default:
+        return AppConstants.primaryColor;
+    }
+  }
+
+  IconData _getGatewayTypeIcon(String type) {
+    switch (type) {
+      case 'SCHOOL_ZONE':
+        return Icons.apartment_rounded;
+      default:
+        return Icons.wifi_tethering_rounded;
+    }
   }
 
   Widget _buildActionButton({
