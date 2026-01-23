@@ -247,13 +247,13 @@ class _GatewayDetailDialogState extends State<GatewayDetailDialog> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        widget.gateway.name,
+                        widget.gateway.location,
                         style: const TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 12),
                       Row(
                         children: [
                           Icon(
@@ -261,10 +261,10 @@ class _GatewayDetailDialogState extends State<GatewayDetailDialog> {
                             size: 16,
                             color: AppConstants.textColor.withOpacity(0.6),
                           ),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              widget.gateway.location,
+                              widget.gateway.name,
                               style: TextStyle(
                                 fontSize: 15,
                                 color: AppConstants.textColor.withOpacity(0.7),
@@ -273,7 +273,7 @@ class _GatewayDetailDialogState extends State<GatewayDetailDialog> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 14),
                       Row(
                         children: [
                           Container(
@@ -282,8 +282,9 @@ class _GatewayDetailDialogState extends State<GatewayDetailDialog> {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: _getGatewayTypeColor(widget.gateway.type)
-                                  .withOpacity(0.15),
+                              color: _getGatewayTypeColor(
+                                widget.gateway.type,
+                              ).withOpacity(0.15),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Row(
@@ -292,7 +293,9 @@ class _GatewayDetailDialogState extends State<GatewayDetailDialog> {
                                 Icon(
                                   _getGatewayTypeIcon(widget.gateway.type),
                                   size: 14,
-                                  color: _getGatewayTypeColor(widget.gateway.type),
+                                  color: _getGatewayTypeColor(
+                                    widget.gateway.type,
+                                  ),
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
@@ -300,7 +303,9 @@ class _GatewayDetailDialogState extends State<GatewayDetailDialog> {
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w500,
-                                    color: _getGatewayTypeColor(widget.gateway.type),
+                                    color: _getGatewayTypeColor(
+                                      widget.gateway.type,
+                                    ),
                                   ),
                                 ),
                               ],

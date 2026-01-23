@@ -77,11 +77,30 @@ class _MapTabState extends State<MapTab> with WidgetsBindingObserver {
 
     // 目標顯示大小 40px，使用高解析度繪製以保持清晰
     const double displaySize = 40.0;
-    const double canvasSize = 120.0; // 高解析度畫布
+    const double iconSize = 120.0; // 圖標本體大小
+    const double shadowBlur = 6.0; // 陰影模糊半徑
+    const double shadowOffset = 3.0; // 陰影偏移
+    const double padding = shadowBlur * 3; // 留出陰影空間
+    const double canvasSize = iconSize + padding; // 畫布總大小
     const double borderWidth = 10.0; // 白色粗邊框
 
     final pictureRecorder = ui.PictureRecorder();
     final canvas = Canvas(pictureRecorder);
+
+    const center = Offset(canvasSize / 2, canvasSize / 2);
+    const radius = (iconSize - borderWidth) / 2;
+
+    // 繪製陰影
+    final shadowPaint = Paint()
+      ..color = Colors.black.withOpacity(0.5)
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, shadowBlur)
+      ..isAntiAlias = true;
+
+    canvas.drawCircle(
+      Offset(center.dx, center.dy + shadowOffset), // 稍微偏下
+      radius + borderWidth / 2,
+      shadowPaint,
+    );
 
     // 繪製填充顏色的圓形（帶白色粗邊框）
     final fillPaint = Paint()
@@ -95,9 +114,6 @@ class _MapTabState extends State<MapTab> with WidgetsBindingObserver {
       ..style = PaintingStyle.stroke
       ..strokeWidth = borderWidth
       ..isAntiAlias = true;
-
-    const center = Offset(canvasSize / 2, canvasSize / 2);
-    const radius = (canvasSize - borderWidth) / 2;
 
     canvas.drawCircle(center, radius, fillPaint);
     canvas.drawCircle(center, radius, borderPaint);
@@ -504,7 +520,7 @@ class _MapTabState extends State<MapTab> with WidgetsBindingObserver {
                       ],
                     ),
                     child: const Icon(
-                      Icons.location_on_rounded,
+                      Icons.my_location,
                       size: 24,
                       color: AppConstants.primaryColor,
                     ),

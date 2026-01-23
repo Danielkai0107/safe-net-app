@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
@@ -71,10 +72,10 @@ class BindDeviceButton extends StatelessWidget {
             ],
           ),
           child: Icon(
-            hasDevice
-                ? Icons.check_circle_rounded
-                : Icons.smartphone_rounded,
-            size: 28,
+            hasDevice ? Symbols.shield_person : Symbols.smartphone,
+            fill: hasDevice ? 1 : 0,
+            weight: hasDevice ? null : 600,
+            size: 30,
             color: hasDevice
                 ? CupertinoColors.white
                 : AppConstants.primaryColor,
