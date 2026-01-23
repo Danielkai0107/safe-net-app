@@ -29,6 +29,8 @@ class ApiService {
       'https://getmapuseractivities-kmzfyt3t5a-uc.a.run.app';
   static const String _getMapUserProfileUrl =
       'https://getmapuserprofile-kmzfyt3t5a-uc.a.run.app';
+  static const String _updateMapUserDeviceUrl =
+      'https://updatemapuserdevice-kmzfyt3t5a-uc.a.run.app';
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
@@ -100,12 +102,16 @@ class ApiService {
   /// [deviceName] - 產品序號（與 deviceId 二選一）
   /// [nickname] - 設備暱稱（選填）
   /// [age] - 使用者年齡（選填）
+  /// [gender] - 性別（選填，MALE | FEMALE | OTHER）
+  /// [avatar] - 頭像檔名（選填，例如：01.png）
   Future<Map<String, dynamic>> bindDeviceToMapUser({
     required String userId,
     String? deviceId,
     String? deviceName,
     String? nickname,
     int? age,
+    String? gender,
+    String? avatar,
   }) async {
     final body = <String, dynamic>{'userId': userId};
 
@@ -122,6 +128,12 @@ class ApiService {
     }
     if (age != null) {
       body['age'] = age;
+    }
+    if (gender != null && gender.isNotEmpty) {
+      body['gender'] = gender;
+    }
+    if (avatar != null && avatar.isNotEmpty) {
+      body['avatar'] = avatar;
     }
 
     print('ApiService: 綁定設備請求');
@@ -169,13 +181,120 @@ class ApiService {
   Future<Map<String, dynamic>> unbindDeviceFromMapUser({
     required String userId,
   }) async {
-    final response = await http.post(
-      Uri.parse(_unbindDeviceFromMapUserUrl),
-      headers: await _getHeaders(),
-      body: jsonEncode({'userId': userId}),
-    );
+    print('ApiService: 解綁設備請求');
+    print('  URL: $_unbindDeviceFromMapUserUrl');
+    print('  Body: ${jsonEncode({'userId': userId})}');
 
-    return jsonDecode(response.body);
+    try {
+      final response = await http.post(
+        Uri.parse(_unbindDeviceFromMapUserUrl),
+        headers: await _getHeaders(),
+        body: jsonEncode({'userId': userId}),
+      );
+
+      print('ApiService: 解綁設備回應');
+      print('  Status Code: ${response.statusCode}');
+      print('  Body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        // 處理 HTTP 錯誤
+        try {
+          final errorBody = jsonDecode(response.body);
+          return {
+            'success': false,
+            'error': errorBody['error'] ?? 'HTTP ${response.statusCode}: ${response.reasonPhrase}',
+          };
+        } catch (e) {
+          return {
+            'success': false,
+            'error': 'HTTP ${response.statusCode}: ${response.reasonPhrase}',
+          };
+        }
+      }
+    } catch (e) {
+      print('ApiService: 解綁設備錯誤 - $e');
+      return {
+        'success': false,
+        'error': '網路錯誤: $e',
+      };
+    }
+  }
+
+  /// 更新設備資訊
+  ///
+  /// [userId] - 用戶 ID（必需）
+  /// [avatar] - 頭像檔名（選填）
+  /// [nickname] - 設備暱稱（選填，傳入空字串可清空）
+  /// [age] - 使用者年齡（選填）
+  /// [gender] - 性別（選填，MALE | FEMALE | OTHER）
+  /// 
+  /// 根據 API 文檔：
+  /// - avatar 儲存在 mapAppUsers collection
+  /// - nickname, age, gender 儲存在 devices collection（欄位名：mapUserNickname, mapUserAge, mapUserGender）
+  /// - 如果用戶未綁定設備，只會更新 avatar
+  Future<Map<String, dynamic>> updateMapUserDevice({
+    required String userId,
+    String? avatar,
+    String? nickname,
+    int? age,
+    String? gender,
+  }) async {
+    final body = <String, dynamic>{'userId': userId};
+
+    // 只有明確提供值時才加入 body
+    if (avatar != null) {
+      body['avatar'] = avatar;
+    }
+    if (nickname != null) {
+      body['nickname'] = nickname; // 允許空字串來清空暱稱
+    }
+    if (age != null) {
+      body['age'] = age;
+    }
+    if (gender != null) {
+      body['gender'] = gender;
+    }
+
+    print('ApiService: 更新設備資訊請求');
+    print('  URL: $_updateMapUserDeviceUrl');
+    print('  Body: ${jsonEncode(body)}');
+
+    try {
+      final response = await http.post(
+        Uri.parse(_updateMapUserDeviceUrl),
+        headers: await _getHeaders(),
+        body: jsonEncode(body),
+      );
+
+      print('ApiService: 更新設備資訊回應');
+      print('  Status Code: ${response.statusCode}');
+      print('  Body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        try {
+          final errorBody = jsonDecode(response.body);
+          return {
+            'success': false,
+            'error': errorBody['error'] ?? 'HTTP ${response.statusCode}: ${response.reasonPhrase}',
+          };
+        } catch (e) {
+          return {
+            'success': false,
+            'error': 'HTTP ${response.statusCode}: ${response.reasonPhrase}',
+          };
+        }
+      }
+    } catch (e) {
+      print('ApiService: 更新設備資訊錯誤 - $e');
+      return {
+        'success': false,
+        'error': '網路錯誤: $e',
+      };
+    }
   }
 
   /// 取得所有公共接收點

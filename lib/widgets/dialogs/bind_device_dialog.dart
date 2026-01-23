@@ -5,6 +5,7 @@ import '../../providers/user_provider.dart';
 import '../../providers/map_provider.dart';
 import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
+import 'avatar_picker_dialog.dart';
 
 /// 綁定設備對話框
 class BindDeviceDialog extends StatefulWidget {
@@ -21,6 +22,8 @@ class _BindDeviceDialogState extends State<BindDeviceDialog> {
   final _deviceIdFocusNode = FocusNode();
   bool _showBindForm = false;
   bool _isLoading = false;
+  String _selectedAvatar = '01.png'; // 預設頭像
+  String? _selectedGender; // 選填：MALE, FEMALE, OTHER
 
   @override
   void dispose() {
@@ -90,6 +93,8 @@ class _BindDeviceDialogState extends State<BindDeviceDialog> {
       deviceName: isDeviceName ? deviceIdOrName : null,
       nickname: nickname.isEmpty ? null : nickname,
       age: age,
+      gender: _selectedGender,
+      avatar: _selectedAvatar,
     );
 
     if (!mounted) return;
@@ -272,6 +277,10 @@ class _BindDeviceDialogState extends State<BindDeviceDialog> {
                           const SizedBox(height: 8),
                           _buildInfoRow('年齡', '${profile.boundDevice!.age} 歲'),
                         ],
+                        if (profile.boundDevice!.gender != null) ...[
+                          const SizedBox(height: 8),
+                          _buildInfoRow('性別', _getGenderText(profile.boundDevice!.gender!)),
+                        ],
                       ],
                     ),
                   ),
@@ -296,6 +305,75 @@ class _BindDeviceDialogState extends State<BindDeviceDialog> {
                           ),
                         ),
                         const SizedBox(height: 16),
+                        // 頭像選擇
+                        GestureDetector(
+                          onTap: () async {
+                            final selectedAvatar = await showAvatarPicker(
+                              context,
+                              currentAvatar: _selectedAvatar,
+                            );
+                            if (selectedAvatar != null) {
+                              setState(() {
+                                _selectedAvatar = selectedAvatar;
+                              });
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: CupertinoColors.white,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Row(
+                              children: [
+                                // 頭像預覽
+                                Container(
+                                  width: 50,
+                                  height: 50,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(25),
+                                    border: Border.all(
+                                      color: AppConstants.primaryColor,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(23),
+                                    child: Image.asset(
+                                      'assets/avatar/$_selectedAvatar',
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (context, error, stackTrace) {
+                                        return const Icon(
+                                          CupertinoIcons.person_circle_fill,
+                                          size: 48,
+                                          color: AppConstants.primaryColor,
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                // 文字說明
+                                const Expanded(
+                                  child: Text(
+                                    '點擊選擇頭像',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: AppConstants.textColor,
+                                    ),
+                                  ),
+                                ),
+                                // 箭頭
+                                const Icon(
+                                  CupertinoIcons.chevron_forward,
+                                  color: CupertinoColors.systemGrey2,
+                                  size: 20,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
                         CupertinoTextField(
                           controller: _deviceIdController,
                           focusNode: _deviceIdFocusNode,
@@ -329,6 +407,54 @@ class _BindDeviceDialogState extends State<BindDeviceDialog> {
                             color: CupertinoColors.white,
                             borderRadius: BorderRadius.circular(10),
                           ),
+                        ),
+                        const SizedBox(height: 16),
+                        // 性別選擇
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(left: 4, bottom: 8),
+                              child: Text(
+                                '性別（選填）',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppConstants.textColor.withOpacity(0.7),
+                                ),
+                              ),
+                            ),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: CupertinoColors.white,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: CupertinoSlidingSegmentedControl<String>(
+                                groupValue: _selectedGender,
+                                onValueChanged: (value) {
+                                  setState(() {
+                                    _selectedGender = value;
+                                  });
+                                },
+                                children: const {
+                                  'MALE': Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 8),
+                                    child: Text('男性'),
+                                  ),
+                                  'FEMALE': Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 8),
+                                    child: Text('女性'),
+                                  ),
+                                  'OTHER': Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 8),
+                                    child: Text('其他'),
+                                  ),
+                                },
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 12),
                         Container(
@@ -429,6 +555,7 @@ class _BindDeviceDialogState extends State<BindDeviceDialog> {
                                       _deviceIdController.clear();
                                       _nicknameController.clear();
                                       _ageController.clear();
+                                      _selectedGender = null;
                                     });
                                   }
                                 },
@@ -477,6 +604,19 @@ class _BindDeviceDialogState extends State<BindDeviceDialog> {
         ),
       ),
     );
+  }
+
+  String _getGenderText(String gender) {
+    switch (gender) {
+      case 'MALE':
+        return '男性';
+      case 'FEMALE':
+        return '女性';
+      case 'OTHER':
+        return '其他';
+      default:
+        return gender;
+    }
   }
 
   Widget _buildInfoRow(String label, String value) {

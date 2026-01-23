@@ -287,7 +287,7 @@ class _HistoryTimelineScreenState extends State<HistoryTimelineScreen> {
     String displayTitle = activity.gatewayName;
     String notificationMessage = '暫無通知';
     bool hasNotificationPoint = false;
-    
+
     final userProvider = context.read<UserProvider>();
     try {
       // 透過 gatewayId 找到對應的通知點位
@@ -306,8 +306,8 @@ class _HistoryTimelineScreenState extends State<HistoryTimelineScreen> {
       onTap: () => _handleActivityTap(activity),
       child: Padding(
         padding: const EdgeInsets.only(
-          left: AppConstants.paddingMedium,
-          right: AppConstants.paddingMedium,
+          left: AppConstants.paddingLarge,
+          right: AppConstants.paddingLarge,
           bottom: AppConstants.paddingMedium,
         ),
         child: Row(
@@ -343,7 +343,7 @@ class _HistoryTimelineScreenState extends State<HistoryTimelineScreen> {
                 ],
               ),
             ),
-            const SizedBox(width: AppConstants.paddingMedium),
+            const SizedBox(width: 20),
             // 右側內容卡片
             Expanded(
               child: Container(

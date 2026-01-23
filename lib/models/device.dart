@@ -7,8 +7,10 @@ class Device {
   final String deviceName;
   final String? nickname; // 設備暱稱（用戶自訂）
   final int? age; // 使用者年齡（用戶自訂）
+  final String? gender; // 性別（MALE | FEMALE | OTHER）
   final DateTime? boundAt; // 綁定時間
   final int? batteryLevel; // 電池電量 (0-100)
+  final String? avatar; // 頭像檔名（預設：01.png）
 
   Device({
     required this.id,
@@ -18,8 +20,10 @@ class Device {
     required this.deviceName,
     this.nickname,
     this.age,
+    this.gender,
     this.boundAt,
     this.batteryLevel,
+    this.avatar,
   });
 
   factory Device.fromJson(Map<String, dynamic> json) {
@@ -31,10 +35,12 @@ class Device {
       deviceName: (json['deviceName'] ?? 'Unknown Device') as String,
       nickname: json['nickname'] as String?,
       age: json['age'] as int?,
+      gender: json['gender'] as String?,
       boundAt: json['boundAt'] != null
           ? DateTime.parse(json['boundAt'] as String)
           : null,
       batteryLevel: json['batteryLevel'] as int?,
+      avatar: json['avatar'] as String? ?? '01.png',
     );
   }
 
@@ -47,8 +53,10 @@ class Device {
       'deviceName': deviceName,
       if (nickname != null) 'nickname': nickname,
       if (age != null) 'age': age,
+      if (gender != null) 'gender': gender,
       if (boundAt != null) 'boundAt': boundAt!.toIso8601String(),
       if (batteryLevel != null) 'batteryLevel': batteryLevel,
+      if (avatar != null) 'avatar': avatar,
     };
   }
 

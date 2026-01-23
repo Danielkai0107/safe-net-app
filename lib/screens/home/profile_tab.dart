@@ -6,6 +6,7 @@ import '../../providers/map_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
+import '../../widgets/dialogs/avatar_picker_dialog.dart';
 import 'notification_points_screen.dart';
 import 'history_timeline_screen.dart';
 
@@ -287,17 +288,69 @@ class _ProfileTabState extends State<ProfileTab> {
                         children: [
                           Row(
                             children: [
-                              Container(
-                                width: 40,
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  color: AppConstants.primaryColor.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: const Icon(
-                                  CupertinoIcons.device_phone_portrait,
-                                  color: AppConstants.primaryColor,
-                                  size: 20,
+                              // 頭像（可點擊更換）
+                              GestureDetector(
+                                onTap: () async {
+                                  final currentAvatar = userProfile.boundDevice!.avatar ?? '01.png';
+                                  final selectedAvatar = await showAvatarPicker(
+                                    context,
+                                    currentAvatar: currentAvatar,
+                                  );
+                                  
+                                  if (selectedAvatar != null && selectedAvatar != currentAvatar && mounted) {
+                                    final authProvider = context.read<AuthProvider>();
+                                    final userProvider = context.read<UserProvider>();
+                                    final userId = authProvider.user?.uid;
+                                    
+                                    if (userId != null) {
+                                      final success = await userProvider.updateDeviceInfo(
+                                        userId: userId,
+                                        avatar: selectedAvatar,
+                                      );
+                                      
+                                      if (mounted) {
+                                        if (success) {
+                                          Helpers.showSuccessDialog(
+                                            context,
+                                            '頭像已更新',
+                                          );
+                                        } else {
+                                          Helpers.showErrorDialog(
+                                            context,
+                                            userProvider.error ?? '更新頭像失敗',
+                                          );
+                                        }
+                                      }
+                                    }
+                                  }
+                                },
+                                child: Container(
+                                  width: 50,
+                                  height: 50,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(25),
+                                    border: Border.all(
+                                      color: AppConstants.primaryColor,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(23),
+                                    child: Image.asset(
+                                      'assets/avatar/${userProfile.boundDevice!.avatar ?? "01.png"}',
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (context, error, stackTrace) {
+                                        return Container(
+                                          color: AppConstants.primaryColor.withOpacity(0.2),
+                                          child: const Icon(
+                                            CupertinoIcons.person_fill,
+                                            color: AppConstants.primaryColor,
+                                            size: 28,
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: AppConstants.paddingMedium),
@@ -336,6 +389,11 @@ class _ProfileTabState extends State<ProfileTab> {
                             _buildInfoRow(
                               '年齡',
                               '${userProfile.boundDevice!.age} 歲',
+                            ),
+                          if (userProfile.boundDevice!.gender != null)
+                            _buildInfoRow(
+                              '性別',
+                              _getGenderText(userProfile.boundDevice!.gender!),
                             ),
                           _buildInfoRow(
                             '設備名稱',
@@ -528,6 +586,19 @@ class _ProfileTabState extends State<ProfileTab> {
         ),
       ),
     );
+  }
+
+  String _getGenderText(String gender) {
+    switch (gender) {
+      case 'MALE':
+        return '男性';
+      case 'FEMALE':
+        return '女性';
+      case 'OTHER':
+        return '其他';
+      default:
+        return gender;
+    }
   }
 
   Widget _buildInfoRow(String label, String value) {

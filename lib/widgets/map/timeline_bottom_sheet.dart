@@ -152,14 +152,28 @@ class _TimelineBottomSheetState extends State<TimelineBottomSheet> {
                                     width: 50,
                                     height: 50,
                                     decoration: BoxDecoration(
-                                      color: AppConstants.primaryColor
-                                          .withOpacity(0.2),
                                       shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: AppConstants.primaryColor,
+                                        width: 2,
+                                      ),
                                     ),
-                                    child: const Icon(
-                                      CupertinoIcons.person_fill,
-                                      color: AppConstants.primaryColor,
-                                      size: 28,
+                                    child: ClipOval(
+                                      child: Image.asset(
+                                        'assets/avatar/${boundDevice.avatar ?? "01.png"}',
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, error, stackTrace) {
+                                          return Container(
+                                            color: AppConstants.primaryColor
+                                                .withOpacity(0.2),
+                                            child: const Icon(
+                                              CupertinoIcons.person_fill,
+                                              color: AppConstants.primaryColor,
+                                              size: 28,
+                                            ),
+                                          );
+                                        },
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(
@@ -426,8 +440,8 @@ class _TimelineBottomSheetState extends State<TimelineBottomSheet> {
       },
       child: Padding(
         padding: const EdgeInsets.only(
-          left: AppConstants.paddingMedium,
-          right: AppConstants.paddingMedium,
+          left: AppConstants.paddingLarge,
+          right: AppConstants.paddingLarge,
           bottom: AppConstants.paddingMedium,
         ),
         child: Row(
@@ -453,7 +467,7 @@ class _TimelineBottomSheetState extends State<TimelineBottomSheet> {
                 ],
               ),
             ),
-            const SizedBox(width: AppConstants.paddingMedium),
+            const SizedBox(width: 20),
             // 右側內容卡片
             Expanded(
               child: Container(
