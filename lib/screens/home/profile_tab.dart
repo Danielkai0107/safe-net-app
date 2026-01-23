@@ -53,18 +53,31 @@ class _ProfileTabState extends State<ProfileTab> {
 
       if (userId != null) {
         final userProvider = context.read<UserProvider>();
-        await userProvider.loadUserProfile(userId);
+
+        // 如果用戶資料已經存在（例如註冊時已載入），不需要重新載入
+        if (userProvider.userProfile != null) {
+          debugPrint('ProfileTab: 用戶資料已存在，無需重新載入');
+
+          // 只載入通知點位
+          final mapProvider = context.read<MapProvider>();
+          await mapProvider.loadNotificationPoints(userId);
+          return;
+        }
+
+        // 載入用戶資料，返回 false 表示正在載入中（由其他地方觸發）
+        final didLoad = await userProvider.loadUserProfile(userId);
 
         // 同時載入通知點位
         final mapProvider = context.read<MapProvider>();
         await mapProvider.loadNotificationPoints(userId);
 
-        if (userProvider.error != null) {
+        // 只有在實際執行載入時才顯示錯誤訊息
+        if (didLoad && userProvider.error != null) {
           debugPrint('ProfileTab: 載入錯誤 = ${userProvider.error}');
           if (mounted) {
             Helpers.showErrorDialog(context, '載入用戶資料失敗: ${userProvider.error}');
           }
-        } else {
+        } else if (userProvider.userProfile != null) {
           debugPrint('ProfileTab: 載入成功');
         }
       }
@@ -134,13 +147,15 @@ class _ProfileTabState extends State<ProfileTab> {
     return CupertinoPageScaffold(
       backgroundColor: AppConstants.backgroundColor,
       navigationBar: CupertinoNavigationBar(
-        middle: const Text(
-          '個人資料',
-          style: TextStyle(fontSize: 20),
-        ),
+        middle: const Text('個人資料', style: TextStyle(fontSize: 20)),
         border: null,
         backgroundColor: AppConstants.backgroundColor,
-        padding: const EdgeInsetsDirectional.only(start: 16, end: 16, top: 8, bottom: 8),
+        padding: const EdgeInsetsDirectional.only(
+          start: 16,
+          end: 16,
+          top: 8,
+          bottom: 8,
+        ),
       ),
       child: SafeArea(
         child: Consumer2<UserProvider, AuthProvider>(
@@ -162,20 +177,6 @@ class _ProfileTabState extends State<ProfileTab> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Container(
-                        width: 100,
-                        height: 100,
-                        decoration: BoxDecoration(
-                          color: AppConstants.primaryColor.withOpacity(0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.person_rounded,
-                          size: 50,
-                          color: AppConstants.primaryColor,
-                        ),
-                      ),
-                      const SizedBox(height: AppConstants.paddingLarge),
                       const Text(
                         '登入以查看個人資料',
                         style: TextStyle(
@@ -186,7 +187,7 @@ class _ProfileTabState extends State<ProfileTab> {
                       ),
                       const SizedBox(height: AppConstants.paddingSmall),
                       Text(
-                        '登入後可以綁定設備、設定通知點位\n並查看更多功能',
+                        '登入後可以綁定設備、設定通知點位',
                         style: TextStyle(
                           fontSize: AppConstants.fontSizeMedium,
                           color: AppConstants.textColor.withOpacity(0.6),
@@ -355,8 +356,7 @@ class _ProfileTabState extends State<ProfileTab> {
                               GestureDetector(
                                 onTap: () async {
                                   final currentAvatar =
-                                      userProfile.boundDevice!.avatar ??
-                                      '01.png';
+                                      userProfile.avatar ?? '01.png';
                                   final selectedAvatar = await showAvatarPicker(
                                     context,
                                     currentAvatar: currentAvatar,
@@ -373,7 +373,7 @@ class _ProfileTabState extends State<ProfileTab> {
 
                                     if (userId != null) {
                                       final success = await userProvider
-                                          .updateDeviceInfo(
+                                          .updateAvatar(
                                             userId: userId,
                                             avatar: selectedAvatar,
                                           );
@@ -407,7 +407,7 @@ class _ProfileTabState extends State<ProfileTab> {
                                   child: ClipRRect(
                                     borderRadius: BorderRadius.circular(23),
                                     child: Image.asset(
-                                      'assets/avatar/${userProfile.boundDevice!.avatar ?? "01.png"}',
+                                      'assets/avatar/${userProfile.avatar ?? "01.png"}',
                                       fit: BoxFit.cover,
                                       errorBuilder:
                                           (context, error, stackTrace) {

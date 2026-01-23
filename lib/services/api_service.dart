@@ -31,6 +31,8 @@ class ApiService {
       'https://getmapuserprofile-kmzfyt3t5a-uc.a.run.app';
   static const String _updateMapUserDeviceUrl =
       'https://updatemapuserdevice-kmzfyt3t5a-uc.a.run.app';
+  static const String _updateMapUserAvatarUrl =
+      'https://us-central1-safe-net-tw.cloudfunctions.net/updateMapUserAvatar';
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
@@ -290,6 +292,59 @@ class ApiService {
       }
     } catch (e) {
       print('ApiService: 更新設備資訊錯誤 - $e');
+      return {
+        'success': false,
+        'error': '網路錯誤: $e',
+      };
+    }
+  }
+
+  /// 更新用戶頭像
+  ///
+  /// [userId] - 用戶 ID（必需）
+  /// [avatar] - 頭像（必需，可以是檔名如 01.png 或完整 URL）
+  Future<Map<String, dynamic>> updateMapUserAvatar({
+    required String userId,
+    required String avatar,
+  }) async {
+    final body = <String, dynamic>{
+      'userId': userId,
+      'avatar': avatar,
+    };
+
+    print('ApiService: 更新用戶頭像請求');
+    print('  URL: $_updateMapUserAvatarUrl');
+    print('  Body: ${jsonEncode(body)}');
+
+    try {
+      final response = await http.post(
+        Uri.parse(_updateMapUserAvatarUrl),
+        headers: await _getHeaders(),
+        body: jsonEncode(body),
+      );
+
+      print('ApiService: 更新用戶頭像回應');
+      print('  Status Code: ${response.statusCode}');
+      print('  Body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        try {
+          final errorBody = jsonDecode(response.body);
+          return {
+            'success': false,
+            'error': errorBody['error'] ?? 'HTTP ${response.statusCode}: ${response.reasonPhrase}',
+          };
+        } catch (e) {
+          return {
+            'success': false,
+            'error': 'HTTP ${response.statusCode}: ${response.reasonPhrase}',
+          };
+        }
+      }
+    } catch (e) {
+      print('ApiService: 更新用戶頭像錯誤 - $e');
       return {
         'success': false,
         'error': '網路錯誤: $e',

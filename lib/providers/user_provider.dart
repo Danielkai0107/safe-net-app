@@ -18,7 +18,14 @@ class UserProvider with ChangeNotifier {
   Device? get boundDevice => _userProfile?.boundDevice;
 
   /// 載入用戶完整資料
-  Future<void> loadUserProfile(String userId) async {
+  /// 返回 true 表示實際執行了載入，false 表示跳過（正在載入中）
+  Future<bool> loadUserProfile(String userId) async {
+    // 如果正在載入，不要重複載入（避免競爭條件）
+    if (_isLoading) {
+      debugPrint('UserProvider: 正在載入中，跳過重複請求');
+      return false;
+    }
+    
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -55,6 +62,7 @@ class UserProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+    return true;
   }
 
   /// 綁定設備
@@ -103,6 +111,8 @@ class UserProvider with ChangeNotifier {
 
       if (result['success'] == true) {
         debugPrint('UserProvider: 綁定成功，重新載入用戶資料');
+        // 重要：先將 _isLoading 設為 false，否則 loadUserProfile 會跳過
+        _isLoading = false;
         await loadUserProfile(userId);
         return true;
       } else {
@@ -137,7 +147,8 @@ class UserProvider with ChangeNotifier {
 
       if (result['success'] == true) {
         debugPrint('UserProvider: 解綁成功，重新載入用戶資料');
-        // 重新載入用戶資料
+        // 重要：先將 _isLoading 設為 false，否則 loadUserProfile 會跳過
+        _isLoading = false;
         await loadUserProfile(userId);
         return true;
       } else {
@@ -210,7 +221,8 @@ class UserProvider with ChangeNotifier {
         }
 
         debugPrint('UserProvider: 更新成功，重新載入用戶資料');
-        // 重新載入用戶資料以獲取最新狀態
+        // 重要：先將 _isLoading 設為 false，否則 loadUserProfile 會跳過
+        _isLoading = false;
         await loadUserProfile(userId);
         return true;
       } else {
@@ -223,6 +235,51 @@ class UserProvider with ChangeNotifier {
     } catch (e) {
       _error = e.toString();
       debugPrint('UserProvider: 更新錯誤 - $_error');
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// 更新用戶頭像
+  ///
+  /// [userId] - 用戶 ID（必需）
+  /// [avatar] - 頭像（必需，可以是檔名如 01.png 或完整 URL）
+  Future<bool> updateAvatar({
+    required String userId,
+    required String avatar,
+  }) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      debugPrint('UserProvider: 開始更新用戶頭像');
+      debugPrint('  userId: $userId');
+      debugPrint('  avatar: $avatar');
+
+      final result = await _apiService.updateMapUserAvatar(
+        userId: userId,
+        avatar: avatar,
+      );
+
+      debugPrint('UserProvider: API 回應: $result');
+
+      if (result['success'] == true) {
+        debugPrint('UserProvider: 更新頭像成功，重新載入用戶資料');
+        _isLoading = false;
+        await loadUserProfile(userId);
+        return true;
+      } else {
+        _error = result['error'] ?? '更新頭像失敗';
+        debugPrint('UserProvider: 更新頭像失敗 - $_error');
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      _error = e.toString();
+      debugPrint('UserProvider: 更新頭像錯誤 - $_error');
       _isLoading = false;
       notifyListeners();
       return false;

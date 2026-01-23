@@ -2,6 +2,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:geolocator/geolocator.dart';
@@ -38,6 +39,12 @@ class _MapTabState extends State<MapTab> with WidgetsBindingObserver {
 
   // 快取自訂標記圖標
   final Map<String, BitmapDescriptor> _markerIconCache = {};
+  
+  // 快取最新位置標記圖標
+  BitmapDescriptor? _latestActivityMarker;
+  
+  // 追蹤上次的頭像，用於檢測變化
+  String? _lastAvatar;
 
   /// 取得守望點類型的顏色
   Color _getGatewayTypeColor(String type) {
@@ -45,13 +52,13 @@ class _MapTabState extends State<MapTab> with WidgetsBindingObserver {
       case GatewayType.schoolZone:
         return AppConstants.schoolZoneColor;
       case GatewayType.safeZone:
-        return AppConstants.primaryColor; // 使用 App 主色綠
+        return AppConstants.safeZoneColor; // #00CA80
       case GatewayType.observeZone:
         return AppConstants.observeZoneColor;
       case GatewayType.inactive:
         return AppConstants.inactiveZoneColor;
       default:
-        return AppConstants.primaryColor;
+        return AppConstants.safeZoneColor;
     }
   }
 
@@ -92,7 +99,7 @@ class _MapTabState extends State<MapTab> with WidgetsBindingObserver {
 
     // 繪製陰影
     final shadowPaint = Paint()
-      ..color = Colors.black.withOpacity(0.5)
+      ..color = Colors.black.withOpacity(0.3)
       ..maskFilter = MaskFilter.blur(BlurStyle.normal, shadowBlur)
       ..isAntiAlias = true;
 
@@ -176,6 +183,153 @@ class _MapTabState extends State<MapTab> with WidgetsBindingObserver {
     debugPrint('MapTab: 標記圖標預載完成');
   }
 
+  /// 建立最新活動記錄的標記（設備頭像 + 黃色邊框，較大尺寸）
+  Future<BitmapDescriptor> _createLatestActivityMarker(String avatarPath) async {
+    // 目標顯示大小 56px，比普通標記 40px 更大
+    const double displaySize = 56.0;
+    const double iconSize = 168.0; // 圖標本體大小（比例對應 displaySize）
+    const double shadowBlur = 8.0;
+    const double shadowOffset = 4.0;
+    const double padding = shadowBlur * 3;
+    const double canvasSize = iconSize + padding;
+    const double borderWidth = 14.0; // 黃色粗邊框
+
+    final pictureRecorder = ui.PictureRecorder();
+    final canvas = Canvas(pictureRecorder);
+
+    const center = Offset(canvasSize / 2, canvasSize / 2);
+    const radius = (iconSize - borderWidth) / 2;
+
+    // 繪製陰影
+    final shadowPaint = Paint()
+      ..color = Colors.black.withOpacity(0.35)
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, shadowBlur)
+      ..isAntiAlias = true;
+
+    canvas.drawCircle(
+      Offset(center.dx, center.dy + shadowOffset),
+      radius + borderWidth / 2,
+      shadowPaint,
+    );
+
+    // 繪製黃色邊框
+    final borderPaint = Paint()
+      ..color = const Color(0xFFFFBE0A) // 黃色
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = borderWidth
+      ..isAntiAlias = true;
+
+    canvas.drawCircle(center, radius, borderPaint);
+
+    // 載入頭像圖片並繪製到圓形區域
+    try {
+      final ByteData data = await rootBundle.load(avatarPath);
+      final codec = await ui.instantiateImageCodec(
+        data.buffer.asUint8List(),
+        targetWidth: iconSize.toInt(),
+        targetHeight: iconSize.toInt(),
+      );
+      final frame = await codec.getNextFrame();
+      final avatarImage = frame.image;
+
+      // 建立圓形裁切路徑
+      final clipPath = Path()
+        ..addOval(Rect.fromCircle(center: center, radius: radius - 2));
+      canvas.save();
+      canvas.clipPath(clipPath);
+
+      // 繪製頭像圖片
+      final srcRect = Rect.fromLTWH(
+        0,
+        0,
+        avatarImage.width.toDouble(),
+        avatarImage.height.toDouble(),
+      );
+      final dstRect = Rect.fromCircle(center: center, radius: radius - 2);
+      canvas.drawImageRect(avatarImage, srcRect, dstRect, Paint());
+
+      canvas.restore();
+    } catch (e) {
+      debugPrint('載入頭像失敗: $e，使用預設圖標');
+      // 如果載入失敗，繪製預設的填充色
+      final fillPaint = Paint()
+        ..color = AppConstants.primaryColor
+        ..style = PaintingStyle.fill
+        ..isAntiAlias = true;
+      canvas.drawCircle(center, radius - 2, fillPaint);
+      
+      // 繪製預設圖標
+      final textPainter = TextPainter(
+        textDirection: TextDirection.ltr,
+        textAlign: TextAlign.center,
+      );
+      textPainter.text = TextSpan(
+        text: String.fromCharCode(Icons.person.codePoint),
+        style: TextStyle(
+          fontSize: 80,
+          fontFamily: Icons.person.fontFamily,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+        ),
+      );
+      textPainter.layout();
+      textPainter.paint(
+        canvas,
+        Offset(
+          (canvasSize - textPainter.width) / 2,
+          (canvasSize - textPainter.height) / 2,
+        ),
+      );
+    }
+
+    final picture = pictureRecorder.endRecording();
+    final image = await picture.toImage(canvasSize.toInt(), canvasSize.toInt());
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    final bytes = byteData!.buffer.asUint8List();
+
+    return BitmapDescriptor.bytes(
+      bytes,
+      width: displaySize,
+      height: displaySize,
+    );
+  }
+
+  /// 更新最新活動標記圖標
+  Future<void> _updateLatestActivityMarker() async {
+    final userProvider = context.read<UserProvider>();
+    final userProfile = userProvider.userProfile;
+    
+    if (userProfile != null && userProfile.hasDevice) {
+      // 優先使用 userProfile.avatar（用戶頭像），若無則使用預設
+      final avatarPath = 'assets/avatar/${userProfile.avatar ?? "01.png"}';
+      _latestActivityMarker = await _createLatestActivityMarker(avatarPath);
+      debugPrint('MapTab: 最新活動標記圖標已更新');
+      if (mounted) {
+        setState(() {}); // 觸發重建以顯示標記
+      }
+    }
+  }
+
+  /// 確保活動記錄監聽已啟動
+  void _ensureActivityListenerStarted() {
+    final authProvider = context.read<AuthProvider>();
+    final userProvider = context.read<UserProvider>();
+    final mapProvider = context.read<MapProvider>();
+    
+    if (authProvider.isAuthenticated && userProvider.hasDevice) {
+      final userId = authProvider.user?.uid;
+      final deviceId = userProvider.boundDevice?.id;
+      
+      if (userId != null && deviceId != null) {
+        debugPrint('MapTab: 確保活動記錄監聽已啟動 userId=$userId, deviceId=$deviceId');
+        mapProvider.startListeningToActivities(
+          userId: userId,
+          deviceId: deviceId,
+        );
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -183,6 +337,11 @@ class _MapTabState extends State<MapTab> with WidgetsBindingObserver {
     _preloadMarkerIcons();
     _initializeData();
     _setInitialPosition();
+    // 延遲載入最新活動標記並確保監聽已啟動（確保 context 可用）
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _ensureActivityListenerStarted();
+      _updateLatestActivityMarker();
+    });
   }
 
   /// 重新整理地圖資料（供外部呼叫）
@@ -193,6 +352,8 @@ class _MapTabState extends State<MapTab> with WidgetsBindingObserver {
     debugPrint('MapTab: 重新整理地圖資料');
 
     await _initializeData(forceReload: true);
+    _ensureActivityListenerStarted();
+    await _updateLatestActivityMarker();
 
     _isRefreshing = false;
   }
@@ -347,8 +508,24 @@ class _MapTabState extends State<MapTab> with WidgetsBindingObserver {
     }
   }
 
-  /// 移動到用戶當前位置
+  /// 移動到最新記錄位置（沒有記錄時移動到用戶當前位置）
   Future<void> _moveToMyLocation() async {
+    final mapProvider = context.read<MapProvider>();
+    
+    // 優先定位到最新的活動記錄
+    if (mapProvider.activities.isNotEmpty) {
+      final latestActivity = mapProvider.activities.first; // 已按時間降序排列
+      if (latestActivity.latitude != 0 && latestActivity.longitude != 0) {
+        debugPrint('定位到最新記錄: ${latestActivity.gatewayName}');
+        mapProvider.updateCenter(
+          LatLng(latestActivity.latitude, latestActivity.longitude),
+          newZoom: 17.0,
+        );
+        return;
+      }
+    }
+    
+    // 沒有活動記錄時，定位到用戶當前位置
     try {
       // 檢查權限
       LocationPermission permission = await Geolocator.checkPermission();
@@ -382,7 +559,6 @@ class _MapTabState extends State<MapTab> with WidgetsBindingObserver {
       );
 
       // 移動地圖到當前位置
-      final mapProvider = context.read<MapProvider>();
       mapProvider.updateCenter(
         LatLng(position.latitude, position.longitude),
         newZoom: 17.0,
@@ -407,10 +583,47 @@ class _MapTabState extends State<MapTab> with WidgetsBindingObserver {
     }
   }
 
-  void _onMapCreated(GoogleMapController controller) {
+  void _onMapCreated(GoogleMapController controller) async {
     _mapController = controller;
     final mapProvider = context.read<MapProvider>();
     mapProvider.setMapController(controller);
+
+    // 設置地圖樣式 - 隱藏地標
+    const String mapStyle = '''
+    [
+      {
+        "featureType": "poi",
+        "stylers": [
+          {
+            "visibility": "off"
+          }
+        ]
+      },
+      {
+        "featureType": "poi.business",
+        "stylers": [
+          {
+            "visibility": "off"
+          }
+        ]
+      },
+      {
+        "featureType": "transit",
+        "elementType": "labels.icon",
+        "stylers": [
+          {
+            "visibility": "off"
+          }
+        ]
+      }
+    ]
+    ''';
+
+    try {
+      await controller.setMapStyle(mapStyle);
+    } catch (e) {
+      debugPrint('設置地圖樣式失敗: $e');
+    }
 
     // 請求定位權限
     _requestLocationPermission();
@@ -450,6 +663,31 @@ class _MapTabState extends State<MapTab> with WidgetsBindingObserver {
       );
     }
 
+    // 最新活動記錄標記（設備頭像 + 黃色邊框）
+    if (mapProvider.activities.isNotEmpty) {
+      final latestActivity = mapProvider.activities.first;
+      if (latestActivity.latitude != 0 && latestActivity.longitude != 0) {
+        // 如果標記還沒建立，嘗試建立
+        if (_latestActivityMarker == null) {
+          debugPrint('MapTab: 活動記錄存在但標記尚未建立，嘗試建立...');
+          _updateLatestActivityMarker();
+        }
+        
+        if (_latestActivityMarker != null) {
+          debugPrint('新增最新活動標記: ${latestActivity.gatewayName} at (${latestActivity.latitude}, ${latestActivity.longitude})');
+          markers.add(
+            Marker(
+              markerId: const MarkerId('latest_activity'),
+              position: LatLng(latestActivity.latitude, latestActivity.longitude),
+              icon: _latestActivityMarker!,
+              zIndex: 999, // 確保顯示在最上層
+              anchor: const Offset(0.5, 1.5), // 顯示在守望點圖標上方
+            ),
+          );
+        }
+      }
+    }
+
     debugPrint('標記建立完成: ${markers.length} 個');
     return markers;
   }
@@ -460,12 +698,28 @@ class _MapTabState extends State<MapTab> with WidgetsBindingObserver {
       child: Stack(
         children: [
           // Google Map
-          Consumer2<MapProvider, AuthProvider>(
-            builder: (context, mapProvider, authProvider, child) {
+          Consumer3<MapProvider, AuthProvider, UserProvider>(
+            builder: (context, mapProvider, authProvider, userProvider, child) {
               if (!_isInitialized) {
                 return const Center(
                   child: CupertinoActivityIndicator(radius: 20),
                 );
+              }
+
+              // 檢測頭像變化，如果變化則更新標記
+              final currentAvatar = userProvider.userProfile?.avatar;
+              if (currentAvatar != _lastAvatar && userProvider.hasDevice) {
+                _lastAvatar = currentAvatar;
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  _updateLatestActivityMarker();
+                });
+              }
+
+              // 當有設備但還沒啟動監聽時，確保監聽已啟動
+              if (userProvider.hasDevice && mapProvider.activities.isEmpty) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  _ensureActivityListenerStarted();
+                });
               }
 
               return GoogleMap(
@@ -506,11 +760,11 @@ class _MapTabState extends State<MapTab> with WidgetsBindingObserver {
                 GestureDetector(
                   onTap: _moveToMyLocation,
                   child: Container(
-                    width: 48,
-                    height: 48,
+                    width: 56,
+                    height: 56,
                     decoration: BoxDecoration(
                       color: AppConstants.cardColor,
-                      borderRadius: BorderRadius.circular(24),
+                      borderRadius: BorderRadius.circular(28),
                       boxShadow: [
                         BoxShadow(
                           color: CupertinoColors.black.withOpacity(0.2),
@@ -521,7 +775,7 @@ class _MapTabState extends State<MapTab> with WidgetsBindingObserver {
                     ),
                     child: const Icon(
                       Icons.my_location,
-                      size: 24,
+                      size: 28,
                       color: AppConstants.primaryColor,
                     ),
                   ),
@@ -549,11 +803,11 @@ class _MapTabState extends State<MapTab> with WidgetsBindingObserver {
                     }
                   },
                   child: Container(
-                    width: 48,
-                    height: 48,
+                    width: 56,
+                    height: 56,
                     decoration: BoxDecoration(
                       color: AppConstants.cardColor,
-                      borderRadius: BorderRadius.circular(24),
+                      borderRadius: BorderRadius.circular(28),
                       boxShadow: [
                         BoxShadow(
                           color: CupertinoColors.black.withOpacity(0.2),
@@ -564,7 +818,7 @@ class _MapTabState extends State<MapTab> with WidgetsBindingObserver {
                     ),
                     child: const Icon(
                       Icons.refresh_rounded,
-                      size: 24,
+                      size: 28,
                       color: AppConstants.primaryColor,
                     ),
                   ),

@@ -64,13 +64,19 @@ class AuthenticationWrapper extends StatefulWidget {
 class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
   bool _isCheckingAuth = true;
   String? _lastCheckedUserId;
-  int _notificationDialogCount = 0; // 追蹤顯示的通知對話框數量
+  OverlayEntry? _notificationOverlay; // 當前通知彈窗的 OverlayEntry
   String _loadingStatus = '正在載入...'; // 載入進度狀態
 
   @override
   void initState() {
     super.initState();
     _initializeApp();
+  }
+
+  @override
+  void dispose() {
+    _dismissNotificationOverlay();
+    super.dispose();
   }
 
   /// 更新載入狀態顯示
@@ -116,7 +122,6 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
       // 步驟 5：設置 Firebase Messaging
       _updateLoadingStatus('設置通知服務...');
       await _setupFirebaseMessaging();
-
     } catch (e) {
       debugPrint('初始化失敗: $e');
     } finally {
@@ -133,19 +138,49 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
     // 如果 Firebase Auth 有登入用戶
     if (authProvider.isAuthenticated && authProvider.user != null) {
       final userId = authProvider.user!.uid;
+      final userProvider = context.read<UserProvider>();
+
+      // 如果註冊/登入正在進行中，不要判斷，等待完成
+      if (authProvider.isLoading) {
+        debugPrint('AuthWrapper: 認證操作進行中，等待完成');
+        return true; // 暫時返回 true，不要登出
+      }
+
+      // 如果正在載入用戶資料，不要判斷，等待載入完成
+      if (userProvider.isLoading) {
+        debugPrint('AuthWrapper: 用戶資料正在載入中，等待完成');
+        return true; // 暫時返回 true，不要登出
+      }
 
       // 如果已經檢查過這個用戶，直接返回
       if (_lastCheckedUserId == userId) {
-        final userProvider = context.read<UserProvider>();
         return userProvider.userProfile != null;
+      }
+
+      // 如果用戶資料已經存在（例如在註冊頁面已經載入），直接使用
+      if (userProvider.userProfile != null) {
+        debugPrint('AuthWrapper: 用戶資料已存在，無需重新載入');
+        _lastCheckedUserId = userId;
+        return true;
       }
 
       try {
         debugPrint('AuthWrapper: 檢查用戶資料 userId=$userId');
 
         // 嘗試載入後端用戶資料
-        final userProvider = context.read<UserProvider>();
-        await userProvider.loadUserProfile(userId);
+        final didLoad = await userProvider.loadUserProfile(userId);
+
+        // 如果跳過了載入（正在載入中），不要判斷，等待完成
+        if (!didLoad) {
+          debugPrint('AuthWrapper: 載入被跳過，等待完成');
+          return true; // 暫時返回 true，不要登出
+        }
+
+        // 再次檢查是否正在進行認證操作（可能在載入過程中狀態變化了）
+        if (authProvider.isLoading) {
+          debugPrint('AuthWrapper: 認證操作進行中，暫不判斷');
+          return true;
+        }
 
         // 檢查是否成功載入
         if (userProvider.userProfile != null) {
@@ -248,74 +283,73 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
     }
   }
 
+  /// 關閉當前通知彈窗
+  void _dismissNotificationOverlay() {
+    if (_notificationOverlay != null) {
+      debugPrint('移除舊通知彈窗');
+      _notificationOverlay!.remove();
+      _notificationOverlay = null;
+    }
+  }
+
   void _showForegroundNotification(RemoteMessage message) {
     debugPrint('收到新的前景通知');
 
-    // 關閉所有現有的通知對話框
-    if (_notificationDialogCount > 0) {
-      debugPrint('關閉 $_notificationDialogCount 個舊通知對話框');
-      for (int i = 0; i < _notificationDialogCount; i++) {
-        Navigator.of(context).pop();
-      }
-      _notificationDialogCount = 0;
-    }
+    // 如果已有通知對話框正在顯示，先移除它
+    _dismissNotificationOverlay();
 
     debugPrint('顯示前景通知對話框');
     debugPrint('標題: ${message.notification?.title}');
     debugPrint('內容: ${message.notification?.body}');
 
-    // 增加計數
-    _notificationDialogCount++;
-
-    showCupertinoDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (context) => CupertinoAlertDialog(
-        title: Text(message.notification?.title ?? '位置通知'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(message.notification?.body ?? ''),
-            if (message.data['gatewayName'] != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                '接收點: ${message.data['gatewayName']}',
-                style: const TextStyle(fontSize: 13),
-              ),
-            ],
-          ],
-        ),
-        actions: [
-          CupertinoDialogAction(
-            child: const Text('關閉'),
-            onPressed: () {
-              Navigator.of(context).pop();
-              _notificationDialogCount--;
-            },
-          ),
-          if (message.data.isNotEmpty)
-            CupertinoDialogAction(
-              isDefaultAction: true,
-              child: const Text('查看位置'),
-              onPressed: () {
-                Navigator.of(context).pop();
-                _notificationDialogCount--;
-                // 延遲執行，確保對話框完全關閉後再處理導航
-                Future.delayed(const Duration(milliseconds: 300), () {
-                  _handleNotificationTap(message);
-                });
-              },
+    // 創建新的 OverlayEntry
+    _notificationOverlay = OverlayEntry(
+      builder: (overlayContext) => Material(
+        color: Colors.black54,
+        child: Center(
+          child: CupertinoAlertDialog(
+            title: Text(message.notification?.title ?? '新守望通知'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(message.notification?.body ?? ''),
+                if (message.data['gatewayName'] != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    '通過守望點: ${message.data['gatewayName']}',
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ],
+              ],
             ),
-        ],
+            actions: [
+              CupertinoDialogAction(
+                child: const Text('關閉'),
+                onPressed: () {
+                  _dismissNotificationOverlay();
+                },
+              ),
+              if (message.data.isNotEmpty)
+                CupertinoDialogAction(
+                  isDefaultAction: true,
+                  child: const Text('查看位置'),
+                  onPressed: () {
+                    _dismissNotificationOverlay();
+                    // 延遲執行，確保彈窗完全關閉後再處理導航
+                    Future.delayed(const Duration(milliseconds: 100), () {
+                      _handleNotificationTap(message);
+                    });
+                  },
+                ),
+            ],
+          ),
+        ),
       ),
-    ).then((_) {
-      // 對話框關閉時減少計數（處理用戶點擊外部區域關閉的情況）
-      if (mounted && _notificationDialogCount > 0) {
-        _notificationDialogCount--;
-        debugPrint('通知對話框已關閉，剩餘: $_notificationDialogCount');
-      }
-    });
+    );
+
+    // 插入到 Overlay
+    Overlay.of(context).insert(_notificationOverlay!);
   }
 
   void _handleNotificationTap(RemoteMessage message) {
@@ -363,18 +397,18 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
-                Icons.map_rounded,
-                size: 80,
-                color: AppConstants.primaryColor,
-              ),
+              // const Icon(
+              //   Icons.map_rounded,
+              //   size: 80,
+              //   color: AppConstants.primaryColor,
+              // ),
               const SizedBox(height: 16),
               const Text(
-                '安全網地圖',
+                'SafeNet Map',
                 style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: AppConstants.textColor,
+                  fontSize: 32,
+                  fontWeight: FontWeight.w600,
+                  color: AppConstants.primaryColor,
                 ),
               ),
               const SizedBox(height: 32),

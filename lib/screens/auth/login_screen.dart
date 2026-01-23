@@ -36,6 +36,9 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleLogin() async {
+    // 收起鍵盤
+    FocusScope.of(context).unfocus();
+
     final email = _emailController.text.trim();
     final password = _passwordController.text;
 
@@ -70,14 +73,18 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.of(context).viewInsets.bottom;
 
-    return Container(
-      // 根據鍵盤調整高度
-      height: MediaQuery.of(context).size.height * 0.7 + bottomPadding,
-      decoration: const BoxDecoration(
-        color: CupertinoColors.systemBackground,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, child) {
+        return Stack(
+          children: [
+            Container(
+              // 根據鍵盤調整高度
+              height: MediaQuery.of(context).size.height * 0.7 + bottomPadding,
+              decoration: const BoxDecoration(
+                color: CupertinoColors.systemBackground,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: Column(
         children: [
           // 頂部拖曳指示器
           Padding(
@@ -123,21 +130,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   const SizedBox(height: 10),
-
-                  // Logo / Icon
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      color: AppConstants.primaryColor.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.map_rounded,
-                      size: 40,
-                      color: AppConstants.primaryColor,
-                    ),
-                  ),
 
                   const SizedBox(height: AppConstants.paddingMedium),
 
@@ -252,33 +244,23 @@ class _LoginScreenState extends State<LoginScreen> {
                   // 登入按鈕
                   SizedBox(
                     width: double.infinity,
-                    child: Consumer<AuthProvider>(
-                      builder: (context, authProvider, child) {
-                        return CupertinoButton(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: AppConstants.paddingMedium,
-                          ),
-                          color: AppConstants.primaryColor,
-                          borderRadius: BorderRadius.circular(
-                            AppConstants.borderRadius,
-                          ),
-                          onPressed: authProvider.isLoading
-                              ? null
-                              : _handleLogin,
-                          child: authProvider.isLoading
-                              ? const CupertinoActivityIndicator(
-                                  color: CupertinoColors.white,
-                                )
-                              : const Text(
-                                  '登入',
-                                  style: TextStyle(
-                                    fontSize: AppConstants.fontSizeLarge,
-                                    fontWeight: FontWeight.w600,
-                                    color: CupertinoColors.white,
-                                  ),
-                                ),
-                        );
-                      },
+                    child: CupertinoButton(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: AppConstants.paddingMedium,
+                      ),
+                      color: AppConstants.primaryColor,
+                      borderRadius: BorderRadius.circular(
+                        AppConstants.borderRadius,
+                      ),
+                      onPressed: authProvider.isLoading ? null : _handleLogin,
+                      child: const Text(
+                        '登入',
+                        style: TextStyle(
+                          fontSize: AppConstants.fontSizeLarge,
+                          fontWeight: FontWeight.w600,
+                          color: CupertinoColors.white,
+                        ),
+                      ),
                     ),
                   ),
 
@@ -317,6 +299,42 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ],
       ),
+            ),
+            // 全螢幕 Loading 遮罩
+            if (authProvider.isLoading)
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: CupertinoColors.black.withOpacity(0.3),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(20),
+                    ),
+                  ),
+                  child: const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CupertinoActivityIndicator(
+                          radius: 16,
+                          color: CupertinoColors.white,
+                        ),
+                        SizedBox(height: 16),
+                        Text(
+                          '登入中...',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: CupertinoColors.white,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }

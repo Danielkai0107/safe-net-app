@@ -606,13 +606,13 @@ class _GatewayDetailDialogState extends State<GatewayDetailDialog> {
       case 'SCHOOL_ZONE':
         return AppConstants.schoolZoneColor;
       case 'SAFE_ZONE':
-        return AppConstants.primaryColor; // 使用 App 主色綠
+        return AppConstants.safeZoneColor; // #00CA80
       case 'OBSERVE_ZONE':
         return AppConstants.observeZoneColor;
       case 'INACTIVE':
         return AppConstants.inactiveZoneColor;
       default:
-        return AppConstants.primaryColor;
+        return AppConstants.safeZoneColor;
     }
   }
 

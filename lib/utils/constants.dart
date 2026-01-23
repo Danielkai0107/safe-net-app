@@ -4,7 +4,7 @@ import 'package:flutter/cupertino.dart';
 class AppConstants {
   // 色彩方案
   static const Color primaryColor = Color(0xFF4ECDC4); // 藍綠色
-  static const Color secondaryColor = Color(0xFFFF6B6B); // 橙色
+  static const Color secondaryColor = Color(0xFFFFC107); // 黃色
   static const Color backgroundColor = Color(0xFFF7F7F7); // 淺灰
   static const Color textColor = Color(0xFF2C3E50); // 深灰
   static const Color cardColor = Color(0xFFFFFFFF); // 白色
@@ -12,7 +12,7 @@ class AppConstants {
 
   // 守望點類型顏色
   static const Color schoolZoneColor = Color(0xFFFF6A95); // 學校守望點 - 粉紅
-  static const Color safeZoneColor = Color(0xFF00CA80); // 可通知守望點 - 綠色
+  static const Color safeZoneColor = Color(0xFF4ECDC4); // 可通知守望點 - 主色綠 #4ECDC4
   static const Color observeZoneColor = Color(0xFF00CCEA); // 僅紀錄守望點 - 藍色
   static const Color inactiveZoneColor = Color(0xFFC4C4C4); // 準備中 - 灰色
   

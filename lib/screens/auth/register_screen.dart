@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/user_provider.dart';
 import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
 
@@ -33,6 +34,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _handleRegister() async {
+    // 收起鍵盤
+    FocusScope.of(context).unfocus();
+
     final email = _emailController.text.trim();
     final password = _passwordController.text;
     final confirmPassword = _confirmPasswordController.text;
@@ -66,21 +70,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!mounted) return;
 
     if (success) {
-      // 註冊成功，導航由 main.dart 的 Consumer 自動處理
-      // 先 pop 回到登入頁面，然後 AuthenticationWrapper 會自動導航到主畫面
+      // 註冊成功，自動登入並載入用戶資料
+      final userProvider = context.read<UserProvider>();
+
+      if (authProvider.user != null) {
+        // 載入用戶資料，確保首頁能正確顯示登入狀態
+        await userProvider.loadUserProfile(authProvider.user!.uid);
+      }
+
+      if (!mounted) return;
+
+      // 直接返回首頁（自動登入狀態）
       Navigator.of(context).pop();
-      
+
       // 顯示成功訊息
-      Future.delayed(const Duration(milliseconds: 100), () {
-        if (mounted) {
-          Helpers.showSuccessDialog(context, '註冊成功！歡迎使用');
-        }
-      });
+      Helpers.showSuccessDialog(context, '註冊成功！歡迎使用');
     } else {
-      Helpers.showErrorDialog(
-        context,
-        authProvider.error ?? '註冊失敗',
-      );
+      Helpers.showErrorDialog(context, authProvider.error ?? '註冊失敗');
     }
   }
 
@@ -88,8 +94,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
       backgroundColor: AppConstants.backgroundColor,
-      child: SafeArea(
-        child: Column(
+      child: Consumer<AuthProvider>(
+        builder: (context, authProvider, child) {
+          return Stack(
+            children: [
+              SafeArea(
+                child: Column(
           children: [
             // 自定義 AppBar
             Container(
@@ -144,256 +154,315 @@ class _RegisterScreenState extends State<RegisterScreen> {
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(AppConstants.paddingLarge),
                 child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 20),
-              
-              // 標題
-              const Text(
-                '建立新帳號',
-                style: TextStyle(
-                  fontSize: AppConstants.fontSizeXXLarge,
-                  fontWeight: FontWeight.bold,
-                  color: AppConstants.textColor,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              
-              const SizedBox(height: AppConstants.paddingSmall),
-              
-              Text(
-                '填寫以下資訊以建立帳號',
-                style: TextStyle(
-                  fontSize: AppConstants.fontSizeMedium,
-                  color: AppConstants.textColor.withOpacity(0.6),
-                ),
-                textAlign: TextAlign.center,
-              ),
-              
-              const SizedBox(height: 30),
-              
-              // 姓名輸入框
-              Container(
-                decoration: BoxDecoration(
-                  color: AppConstants.cardColor,
-                  borderRadius: BorderRadius.circular(AppConstants.borderRadius),
-                  boxShadow: [
-                    BoxShadow(
-                      color: CupertinoColors.systemGrey.withOpacity(0.1),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: 20),
+
+                    // 標題
+                    const Text(
+                      '建立新帳號',
+                      style: TextStyle(
+                        fontSize: AppConstants.fontSizeXXLarge,
+                        fontWeight: FontWeight.bold,
+                        color: AppConstants.textColor,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                  ],
-                ),
-                child: CupertinoTextField(
-                  controller: _nameController,
-                  placeholder: '姓名 *',
-                  padding: const EdgeInsets.all(AppConstants.paddingMedium),
-                  decoration: const BoxDecoration(),
-                  prefix: const Padding(
-                    padding: EdgeInsets.only(left: AppConstants.paddingMedium),
-                    child: Icon(
-                      Icons.person_rounded,
-                      color: AppConstants.primaryColor,
+
+                    const SizedBox(height: AppConstants.paddingSmall),
+
+                    Text(
+                      '填寫以下資訊以建立帳號',
+                      style: TextStyle(
+                        fontSize: AppConstants.fontSizeMedium,
+                        color: AppConstants.textColor.withOpacity(0.6),
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                  ),
-                ),
-              ),
-              
-              const SizedBox(height: AppConstants.paddingMedium),
-              
-              // Email 輸入框
-              Container(
-                decoration: BoxDecoration(
-                  color: AppConstants.cardColor,
-                  borderRadius: BorderRadius.circular(AppConstants.borderRadius),
-                  boxShadow: [
-                    BoxShadow(
-                      color: CupertinoColors.systemGrey.withOpacity(0.1),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: CupertinoTextField(
-                  controller: _emailController,
-                  placeholder: 'Email *',
-                  keyboardType: TextInputType.emailAddress,
-                  padding: const EdgeInsets.all(AppConstants.paddingMedium),
-                  decoration: const BoxDecoration(),
-                  prefix: const Padding(
-                    padding: EdgeInsets.only(left: AppConstants.paddingMedium),
-                    child: Icon(
-                      Icons.email_rounded,
-                      color: AppConstants.primaryColor,
-                    ),
-                  ),
-                ),
-              ),
-              
-              const SizedBox(height: AppConstants.paddingMedium),
-              
-              // 電話輸入框
-              Container(
-                decoration: BoxDecoration(
-                  color: AppConstants.cardColor,
-                  borderRadius: BorderRadius.circular(AppConstants.borderRadius),
-                  boxShadow: [
-                    BoxShadow(
-                      color: CupertinoColors.systemGrey.withOpacity(0.1),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: CupertinoTextField(
-                  controller: _phoneController,
-                  placeholder: '電話（選填）',
-                  keyboardType: TextInputType.phone,
-                  padding: const EdgeInsets.all(AppConstants.paddingMedium),
-                  decoration: const BoxDecoration(),
-                  prefix: const Padding(
-                    padding: EdgeInsets.only(left: AppConstants.paddingMedium),
-                    child: Icon(
-                      Icons.phone_rounded,
-                      color: AppConstants.primaryColor,
-                    ),
-                  ),
-                ),
-              ),
-              
-              const SizedBox(height: AppConstants.paddingMedium),
-              
-              // 密碼輸入框
-              Container(
-                decoration: BoxDecoration(
-                  color: AppConstants.cardColor,
-                  borderRadius: BorderRadius.circular(AppConstants.borderRadius),
-                  boxShadow: [
-                    BoxShadow(
-                      color: CupertinoColors.systemGrey.withOpacity(0.1),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: CupertinoTextField(
-                  controller: _passwordController,
-                  placeholder: '密碼 * (至少 6 個字元)',
-                  obscureText: _obscurePassword,
-                  padding: const EdgeInsets.all(AppConstants.paddingMedium),
-                  decoration: const BoxDecoration(),
-                  prefix: const Padding(
-                    padding: EdgeInsets.only(left: AppConstants.paddingMedium),
-                    child: Icon(
-                      Icons.lock_rounded,
-                      color: AppConstants.primaryColor,
-                    ),
-                  ),
-                  suffix: CupertinoButton(
-                    padding: EdgeInsets.zero,
-                    onPressed: () {
-                      setState(() {
-                        _obscurePassword = !_obscurePassword;
-                      });
-                    },
-                    child: Icon(
-                      _obscurePassword
-                          ? Icons.visibility_rounded
-                          : Icons.visibility_off_rounded,
-                      color: AppConstants.textColor.withOpacity(0.5),
-                    ),
-                  ),
-                ),
-              ),
-              
-              const SizedBox(height: AppConstants.paddingMedium),
-              
-              // 確認密碼輸入框
-              Container(
-                decoration: BoxDecoration(
-                  color: AppConstants.cardColor,
-                  borderRadius: BorderRadius.circular(AppConstants.borderRadius),
-                  boxShadow: [
-                    BoxShadow(
-                      color: CupertinoColors.systemGrey.withOpacity(0.1),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: CupertinoTextField(
-                  controller: _confirmPasswordController,
-                  placeholder: '確認密碼 *',
-                  obscureText: _obscureConfirmPassword,
-                  padding: const EdgeInsets.all(AppConstants.paddingMedium),
-                  decoration: const BoxDecoration(),
-                  prefix: const Padding(
-                    padding: EdgeInsets.only(left: AppConstants.paddingMedium),
-                    child: Icon(
-                      Icons.lock_rounded,
-                      color: AppConstants.primaryColor,
-                    ),
-                  ),
-                  suffix: CupertinoButton(
-                    padding: EdgeInsets.zero,
-                    onPressed: () {
-                      setState(() {
-                        _obscureConfirmPassword = !_obscureConfirmPassword;
-                      });
-                    },
-                    child: Icon(
-                      _obscureConfirmPassword
-                          ? Icons.visibility_rounded
-                          : Icons.visibility_off_rounded,
-                      color: AppConstants.textColor.withOpacity(0.5),
-                    ),
-                  ),
-                ),
-              ),
-              
-              const SizedBox(height: AppConstants.paddingLarge),
-              
-              // 註冊按鈕
-              Consumer<AuthProvider>(
-                builder: (context, authProvider, child) {
-                  return CupertinoButton(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: AppConstants.paddingMedium,
-                    ),
-                    color: AppConstants.primaryColor,
-                    borderRadius: BorderRadius.circular(AppConstants.borderRadius),
-                    onPressed: authProvider.isLoading ? null : _handleRegister,
-                    child: authProvider.isLoading
-                        ? const CupertinoActivityIndicator(color: CupertinoColors.white)
-                        : const Text(
-                            '註冊',
-                            style: TextStyle(
-                              fontSize: AppConstants.fontSizeLarge,
-                              fontWeight: FontWeight.w600,
-                              color: CupertinoColors.white,
-                            ),
+
+                    const SizedBox(height: 30),
+
+                    // 姓名輸入框
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppConstants.cardColor,
+                        borderRadius: BorderRadius.circular(
+                          AppConstants.borderRadius,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: CupertinoColors.systemGrey.withOpacity(0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
                           ),
-                  );
-                },
-              ),
-              
-              const SizedBox(height: AppConstants.paddingMedium),
-              
-              Text(
-                '* 必填欄位',
-                style: TextStyle(
-                  fontSize: AppConstants.fontSizeSmall,
-                  color: AppConstants.textColor.withOpacity(0.5),
+                        ],
+                      ),
+                      child: CupertinoTextField(
+                        controller: _nameController,
+                        placeholder: '姓名 *',
+                        padding: const EdgeInsets.all(
+                          AppConstants.paddingMedium,
+                        ),
+                        decoration: const BoxDecoration(),
+                        prefix: const Padding(
+                          padding: EdgeInsets.only(
+                            left: AppConstants.paddingMedium,
+                          ),
+                          child: Icon(
+                            Icons.person_rounded,
+                            color: AppConstants.primaryColor,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: AppConstants.paddingMedium),
+
+                    // Email 輸入框
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppConstants.cardColor,
+                        borderRadius: BorderRadius.circular(
+                          AppConstants.borderRadius,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: CupertinoColors.systemGrey.withOpacity(0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: CupertinoTextField(
+                        controller: _emailController,
+                        placeholder: 'Email *',
+                        keyboardType: TextInputType.emailAddress,
+                        padding: const EdgeInsets.all(
+                          AppConstants.paddingMedium,
+                        ),
+                        decoration: const BoxDecoration(),
+                        prefix: const Padding(
+                          padding: EdgeInsets.only(
+                            left: AppConstants.paddingMedium,
+                          ),
+                          child: Icon(
+                            Icons.email_rounded,
+                            color: AppConstants.primaryColor,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: AppConstants.paddingMedium),
+
+                    // 電話輸入框
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppConstants.cardColor,
+                        borderRadius: BorderRadius.circular(
+                          AppConstants.borderRadius,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: CupertinoColors.systemGrey.withOpacity(0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: CupertinoTextField(
+                        controller: _phoneController,
+                        placeholder: '電話（選填）',
+                        keyboardType: TextInputType.phone,
+                        padding: const EdgeInsets.all(
+                          AppConstants.paddingMedium,
+                        ),
+                        decoration: const BoxDecoration(),
+                        prefix: const Padding(
+                          padding: EdgeInsets.only(
+                            left: AppConstants.paddingMedium,
+                          ),
+                          child: Icon(
+                            Icons.phone_rounded,
+                            color: AppConstants.primaryColor,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: AppConstants.paddingMedium),
+
+                    // 密碼輸入框
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppConstants.cardColor,
+                        borderRadius: BorderRadius.circular(
+                          AppConstants.borderRadius,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: CupertinoColors.systemGrey.withOpacity(0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: CupertinoTextField(
+                        controller: _passwordController,
+                        placeholder: '密碼 * (至少 6 個字元)',
+                        obscureText: _obscurePassword,
+                        padding: const EdgeInsets.all(
+                          AppConstants.paddingMedium,
+                        ),
+                        decoration: const BoxDecoration(),
+                        prefix: const Padding(
+                          padding: EdgeInsets.only(
+                            left: AppConstants.paddingMedium,
+                          ),
+                          child: Icon(
+                            Icons.lock_rounded,
+                            color: AppConstants.primaryColor,
+                          ),
+                        ),
+                        suffix: CupertinoButton(
+                          padding: EdgeInsets.zero,
+                          onPressed: () {
+                            setState(() {
+                              _obscurePassword = !_obscurePassword;
+                            });
+                          },
+                          child: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_rounded
+                                : Icons.visibility_off_rounded,
+                            color: AppConstants.textColor.withOpacity(0.5),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: AppConstants.paddingMedium),
+
+                    // 確認密碼輸入框
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppConstants.cardColor,
+                        borderRadius: BorderRadius.circular(
+                          AppConstants.borderRadius,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: CupertinoColors.systemGrey.withOpacity(0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: CupertinoTextField(
+                        controller: _confirmPasswordController,
+                        placeholder: '確認密碼 *',
+                        obscureText: _obscureConfirmPassword,
+                        padding: const EdgeInsets.all(
+                          AppConstants.paddingMedium,
+                        ),
+                        decoration: const BoxDecoration(),
+                        prefix: const Padding(
+                          padding: EdgeInsets.only(
+                            left: AppConstants.paddingMedium,
+                          ),
+                          child: Icon(
+                            Icons.lock_rounded,
+                            color: AppConstants.primaryColor,
+                          ),
+                        ),
+                        suffix: CupertinoButton(
+                          padding: EdgeInsets.zero,
+                          onPressed: () {
+                            setState(() {
+                              _obscureConfirmPassword =
+                                  !_obscureConfirmPassword;
+                            });
+                          },
+                          child: Icon(
+                            _obscureConfirmPassword
+                                ? Icons.visibility_rounded
+                                : Icons.visibility_off_rounded,
+                            color: AppConstants.textColor.withOpacity(0.5),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: AppConstants.paddingLarge),
+
+                    // 註冊按鈕
+                    CupertinoButton(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: AppConstants.paddingMedium,
+                      ),
+                      color: AppConstants.primaryColor,
+                      borderRadius: BorderRadius.circular(
+                        AppConstants.borderRadius,
+                      ),
+                      onPressed:
+                          authProvider.isLoading ? null : _handleRegister,
+                      child: const Text(
+                        '註冊',
+                        style: TextStyle(
+                          fontSize: AppConstants.fontSizeLarge,
+                          fontWeight: FontWeight.w600,
+                          color: CupertinoColors.white,
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: AppConstants.paddingMedium),
+
+                    Text(
+                      '* 必填欄位',
+                      style: TextStyle(
+                        fontSize: AppConstants.fontSizeSmall,
+                        color: AppConstants.textColor.withOpacity(0.5),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
                 ),
-                textAlign: TextAlign.center,
               ),
-            ],
-          ),
-        ),
             ),
           ],
         ),
+              ),
+              // 全螢幕 Loading 遮罩
+              if (authProvider.isLoading)
+                Positioned.fill(
+                  child: Container(
+                    color: CupertinoColors.black.withOpacity(0.3),
+                    child: const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CupertinoActivityIndicator(
+                            radius: 16,
+                            color: CupertinoColors.white,
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            '註冊中...',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: CupertinoColors.white,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }

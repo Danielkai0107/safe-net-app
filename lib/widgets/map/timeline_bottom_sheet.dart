@@ -20,12 +20,24 @@ class TimelineBottomSheet extends StatefulWidget {
 class _TimelineBottomSheetState extends State<TimelineBottomSheet> {
   final DraggableScrollableController _controller =
       DraggableScrollableController();
+  ScrollController? _scrollController; // 列表滾動控制器
   String? _lastActivityId; // 追蹤最新活動 ID
 
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  /// 滾動到頂部
+  void _scrollToTop() {
+    if (_scrollController != null && _scrollController!.hasClients) {
+      _scrollController!.animateTo(
+        0,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      );
+    }
   }
 
   /// 檢查是否有新活動並自動收合
@@ -48,6 +60,7 @@ class _TimelineBottomSheetState extends State<TimelineBottomSheet> {
           // 是通知點位，自動收合彈窗
           debugPrint('收到新通知，自動收合時間軸');
           if (_controller.isAttached && _controller.size > 0.5) {
+            _scrollToTop();
             _controller.animateTo(
               0.12,
               duration: const Duration(milliseconds: 300),
@@ -103,6 +116,8 @@ class _TimelineBottomSheetState extends State<TimelineBottomSheet> {
           snap: true,
           snapSizes: const [0.12, 0.85],
           builder: (context, scrollController) {
+            // 保存 scrollController 供收合時使用
+            _scrollController = scrollController;
             return Container(
               decoration: BoxDecoration(
                 color: AppConstants.cardColor,
@@ -161,7 +176,7 @@ class _TimelineBottomSheetState extends State<TimelineBottomSheet> {
                                     ),
                                     child: ClipOval(
                                       child: Image.asset(
-                                        'assets/avatar/${boundDevice.avatar ?? "01.png"}',
+                                        'assets/avatar/${userProvider.userProfile?.avatar ?? "01.png"}',
                                         fit: BoxFit.cover,
                                         errorBuilder: (context, error, stackTrace) {
                                           return Container(
@@ -413,6 +428,8 @@ class _TimelineBottomSheetState extends State<TimelineBottomSheet> {
         if (_controller.isAttached) {
           try {
             debugPrint('收合時間軸彈窗 (當前大小: ${_controller.size})');
+            // 滾動到頂部
+            _scrollToTop();
             // 先跳轉到當前大小（停止任何滾動動畫）
             _controller.jumpTo(_controller.size);
             // 然後平滑收合到預覽模式
