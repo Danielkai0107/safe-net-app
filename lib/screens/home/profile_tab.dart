@@ -142,6 +142,127 @@ class _ProfileTabState extends State<ProfileTab> {
     userProvider.reset();
   }
 
+  Future<void> _handleDeleteAccount() async {
+    // 第一次確認
+    final confirmed = await Helpers.showConfirmDialog(
+      context,
+      '註銷帳號',
+      '此操作將永久刪除您的帳號及所有資料，包括綁定的設備、通知點位等。此操作無法復原，確定要繼續嗎？',
+    );
+
+    if (!confirmed || !mounted) return;
+
+    // 第二次確認（加強警告）
+    final finalConfirmed = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: const Text('最後確認'),
+        content: const Text('您即將永久刪除您的帳號，此操作無法復原。請確認您已了解後果。'),
+        actions: [
+          CupertinoDialogAction(
+            child: const Text('取消'),
+            onPressed: () => Navigator.of(context).pop(false),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            child: const Text('確定刪除'),
+            onPressed: () => Navigator.of(context).pop(true),
+          ),
+        ],
+      ),
+    );
+
+    if (finalConfirmed != true || !mounted) return;
+
+    final authProvider = context.read<AuthProvider>();
+    final userProvider = context.read<UserProvider>();
+    final mapProvider = context.read<MapProvider>();
+    final userId = authProvider.user?.uid;
+
+    if (userId == null) {
+      if (mounted) {
+        Helpers.showErrorDialog(context, '無法取得用戶 ID');
+      }
+      return;
+    }
+
+    // 顯示載入中
+    if (mounted) {
+      showCupertinoDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const CupertinoAlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CupertinoActivityIndicator(),
+              SizedBox(height: 16),
+              Text('正在註銷帳號...'),
+            ],
+          ),
+        ),
+      );
+    }
+
+    try {
+      // 步驟 1: 刪除後端資料
+      final backendSuccess = await userProvider.deleteAccount(userId: userId);
+
+      if (!backendSuccess) {
+        if (mounted) {
+          Navigator.of(context).pop(); // 關閉載入對話框
+          Helpers.showErrorDialog(
+            context,
+            userProvider.error ?? '註銷帳號失敗，請稍後再試',
+          );
+        }
+        return;
+      }
+
+      // 步驟 2: 刪除 Firebase Auth 帳號
+      final authSuccess = await authProvider.deleteFirebaseAccount();
+
+      if (mounted) {
+        Navigator.of(context).pop(); // 關閉載入對話框
+      }
+
+      if (authSuccess) {
+        // 清空所有狀態
+        mapProvider.reset();
+        userProvider.reset();
+
+        if (mounted) {
+          // 顯示成功訊息
+          await showCupertinoDialog(
+            context: context,
+            builder: (context) => CupertinoAlertDialog(
+              title: const Text('帳號已註銷'),
+              content: const Text('您的帳號及所有資料已永久刪除'),
+              actions: [
+                CupertinoDialogAction(
+                  child: const Text('確定'),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          Helpers.showErrorDialog(
+            context,
+            authProvider.error ?? '刪除 Firebase 帳號失敗',
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context).pop(); // 關閉載入對話框
+        Helpers.showErrorDialog(context, '註銷過程發生錯誤: $e');
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
@@ -205,8 +326,12 @@ class _ProfileTabState extends State<ProfileTab> {
                           borderRadius: BorderRadius.circular(
                             AppConstants.borderRadius,
                           ),
-                          onPressed: () {
-                            LoginScreen.show(context);
+                          onPressed: () async {
+                            final success = await LoginScreen.show(context);
+                            if (success == true && mounted) {
+                              // 登入成功，立即載入用戶資料
+                              await _loadUserProfile();
+                            }
                           },
                           child: const Text(
                             '登入 / 註冊',
@@ -662,6 +787,38 @@ class _ProfileTabState extends State<ProfileTab> {
                             fontSize: AppConstants.fontSizeLarge,
                             fontWeight: FontWeight.w600,
                             color: CupertinoColors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: AppConstants.paddingMedium),
+
+                  // 註銷帳號按鈕
+                  CupertinoButton(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppConstants.paddingMedium,
+                    ),
+                    color: CupertinoColors.systemGrey5,
+                    borderRadius: BorderRadius.circular(
+                      AppConstants.borderRadius,
+                    ),
+                    onPressed: _handleDeleteAccount,
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.delete_forever_rounded,
+                          color: CupertinoColors.destructiveRed,
+                        ),
+                        SizedBox(width: AppConstants.paddingSmall),
+                        Text(
+                          '註銷帳號',
+                          style: TextStyle(
+                            fontSize: AppConstants.fontSizeLarge,
+                            fontWeight: FontWeight.w600,
+                            color: CupertinoColors.destructiveRed,
                           ),
                         ),
                       ],

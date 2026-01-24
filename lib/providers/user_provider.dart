@@ -301,6 +301,53 @@ class UserProvider with ChangeNotifier {
     }
   }
 
+  /// 註銷帳號
+  ///
+  /// [userId] - 用戶 ID（必需）
+  /// 
+  /// 此操作將：
+  /// 1. 刪除後端所有用戶資料（包括設備綁定、通知點位）
+  /// 2. 刪除 Firebase Auth 帳號
+  /// 3. 清空本地狀態
+  Future<bool> deleteAccount({required String userId}) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      debugPrint('UserProvider: 開始註銷帳號');
+      debugPrint('  userId: $userId');
+
+      // 調用後端 API 刪除用戶資料
+      final result = await _apiService.deleteMapAppUser(userId: userId);
+
+      debugPrint('UserProvider: API 回應: $result');
+
+      if (result['success'] == true) {
+        debugPrint('UserProvider: 後端資料已刪除');
+        
+        // 清空本地狀態
+        _userProfile = null;
+        _isLoading = false;
+        notifyListeners();
+        
+        return true;
+      } else {
+        _error = result['error'] ?? '註銷帳號失敗';
+        debugPrint('UserProvider: 註銷失敗 - $_error');
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      _error = e.toString();
+      debugPrint('UserProvider: 註銷錯誤 - $_error');
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
   /// 清除錯誤
   void clearError() {
     _error = null;

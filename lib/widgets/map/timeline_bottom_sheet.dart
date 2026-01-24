@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../models/activity.dart';
@@ -8,6 +9,9 @@ import '../../providers/map_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
+import '../../providers/auth_provider.dart';
+import '../../screens/auth/login_screen.dart';
+import '../dialogs/bind_device_dialog.dart';
 
 /// 時間軸底部彈窗
 class TimelineBottomSheet extends StatefulWidget {
@@ -98,9 +102,9 @@ class _TimelineBottomSheetState extends State<TimelineBottomSheet> {
         final boundDevice = userProvider.boundDevice;
         final activities = mapProvider.activities;
 
-        // 如果沒有綁定設備，不顯示彈窗
+        // 如果沒有綁定設備，顯示引導綁定的彈窗
         if (boundDevice == null) {
-          return const SizedBox.shrink();
+          return _buildUnboundDeviceSheet();
         }
 
         // 檢查是否有新活動並自動收合
@@ -178,17 +182,19 @@ class _TimelineBottomSheetState extends State<TimelineBottomSheet> {
                                       child: Image.asset(
                                         'assets/avatar/${userProvider.userProfile?.avatar ?? "01.png"}',
                                         fit: BoxFit.cover,
-                                        errorBuilder: (context, error, stackTrace) {
-                                          return Container(
-                                            color: AppConstants.primaryColor
-                                                .withOpacity(0.2),
-                                            child: const Icon(
-                                              Icons.person_rounded,
-                                              color: AppConstants.primaryColor,
-                                              size: 28,
-                                            ),
-                                          );
-                                        },
+                                        errorBuilder:
+                                            (context, error, stackTrace) {
+                                              return Container(
+                                                color: AppConstants.primaryColor
+                                                    .withOpacity(0.2),
+                                                child: const Icon(
+                                                  Icons.person_rounded,
+                                                  color:
+                                                      AppConstants.primaryColor,
+                                                  size: 28,
+                                                ),
+                                              );
+                                            },
                                       ),
                                     ),
                                   ),
@@ -257,6 +263,212 @@ class _TimelineBottomSheetState extends State<TimelineBottomSheet> {
               ),
             );
           },
+        );
+      },
+    );
+  }
+
+  /// 建立未綁定裝置時的引導彈窗
+  Widget _buildUnboundDeviceSheet() {
+    return DraggableScrollableSheet(
+      controller: _controller,
+      initialChildSize: 0.12,
+      minChildSize: 0.12,
+      maxChildSize: 0.35,
+      snap: true,
+      snapSizes: const [0.12, 0.35],
+      builder: (context, scrollController) {
+        return Container(
+          decoration: BoxDecoration(
+            color: AppConstants.cardColor,
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(AppConstants.borderRadiusLarge),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: CupertinoColors.systemGrey.withOpacity(0.15),
+                blurRadius: 8,
+                offset: const Offset(0, -2),
+              ),
+            ],
+          ),
+          child: CustomScrollView(
+            controller: scrollController,
+            physics: const ClampingScrollPhysics(),
+            slivers: [
+              SliverToBoxAdapter(
+                child: Column(
+                  children: [
+                    // 拖曳指示器
+                    Container(
+                      margin: const EdgeInsets.symmetric(vertical: 8),
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppConstants.borderColor,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    // 頂部預覽資訊
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppConstants.paddingMedium,
+                        vertical: AppConstants.paddingSmall,
+                      ),
+                      child: Row(
+                        children: [
+                          // 預設頭像
+                          Container(
+                            width: 50,
+                            height: 50,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: AppConstants.primaryColor.withOpacity(0.1),
+                              border: Border.all(
+                                color: AppConstants.primaryColor.withOpacity(
+                                  0.5,
+                                ),
+                                width: 2,
+                              ),
+                            ),
+                            child: const Icon(
+                              Symbols.smartphone,
+                              weight: 600,
+                              color: AppConstants.primaryColor,
+                              size: 26,
+                            ),
+                          ),
+                          const SizedBox(width: AppConstants.paddingMedium),
+                          // 提示文字
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  '尚未綁定裝置',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppConstants.textColor,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '向上滑動了解更多',
+                                  style: TextStyle(
+                                    fontSize: AppConstants.fontSizeSmall,
+                                    color: AppConstants.textColor.withOpacity(
+                                      0.6,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // 引導內容
+              SliverToBoxAdapter(
+                child: Container(
+                  padding: const EdgeInsets.all(AppConstants.paddingLarge),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      const Text(
+                        '綁定您的裝置',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: AppConstants.fontSizeLarge,
+                          fontWeight: FontWeight.w600,
+                          color: AppConstants.textColor,
+                        ),
+                      ),
+                      const SizedBox(height: AppConstants.paddingMedium),
+                      Text(
+                        '綁定裝置後即可查看即時守望記錄',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: AppConstants.fontSizeMedium,
+                          color: AppConstants.textColor.withOpacity(0.6),
+                          height: 1.5,
+                        ),
+                      ),
+                      const SizedBox(height: AppConstants.paddingLarge * 1.5),
+                      // 綁定按鈕
+                      SizedBox(
+                        width: double.infinity,
+                        child: CupertinoButton(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          color: AppConstants.primaryColor,
+                          borderRadius: BorderRadius.circular(
+                            AppConstants.borderRadius,
+                          ),
+                          onPressed: () {
+                            final authProvider = context.read<AuthProvider>();
+                            if (!authProvider.isAuthenticated) {
+                              // 未登入，顯示提示並提供登入選項
+                              showCupertinoDialog(
+                                context: context,
+                                builder: (dialogContext) =>
+                                    CupertinoAlertDialog(
+                                      title: const Text('請先登入'),
+                                      content: const Text('綁定設備前需要先登入帳號'),
+                                      actions: [
+                                        CupertinoDialogAction(
+                                          child: const Text('取消'),
+                                          onPressed: () =>
+                                              Navigator.of(dialogContext).pop(),
+                                        ),
+                                        CupertinoDialogAction(
+                                          isDefaultAction: true,
+                                          child: const Text('前往登入'),
+                                          onPressed: () {
+                                            Navigator.of(dialogContext).pop();
+                                            LoginScreen.show(context);
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                              );
+                            } else {
+                              // 已登入，顯示綁定對話框
+                              showCupertinoModalPopup(
+                                context: context,
+                                builder: (context) => const BindDeviceDialog(),
+                              );
+                            }
+                          },
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.add_link_rounded,
+                                color: CupertinoColors.white,
+                                size: 20,
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                '立即綁定裝置',
+                                style: TextStyle(
+                                  fontSize: AppConstants.fontSizeLarge,
+                                  fontWeight: FontWeight.w600,
+                                  color: CupertinoColors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         );
       },
     );

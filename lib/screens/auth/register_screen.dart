@@ -70,11 +70,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!mounted) return;
 
     if (success) {
-      // 註冊成功，自動登入並載入用戶資料
+      // 註冊成功，載入用戶資料
       final userProvider = context.read<UserProvider>();
 
       if (authProvider.user != null) {
-        // 載入用戶資料，確保首頁能正確顯示登入狀態
+        // 載入完整用戶資料（包含設備、通知點位等）
         await userProvider.loadUserProfile(authProvider.user!.uid);
       }
 
@@ -86,7 +86,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       // 顯示成功訊息
       Helpers.showSuccessDialog(context, '註冊成功！歡迎使用');
     } else {
-      Helpers.showErrorDialog(context, authProvider.error ?? '註冊失敗');
+      // 顯示詳細錯誤訊息
+      final errorMessage = authProvider.error ?? '註冊失敗';
+      Helpers.showErrorDialog(context, errorMessage);
     }
   }
 

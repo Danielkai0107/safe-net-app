@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -9,6 +10,7 @@ import 'providers/auth_provider.dart';
 import 'providers/map_provider.dart';
 import 'providers/user_provider.dart';
 import 'screens/home/home_screen.dart';
+import 'services/account_deleted_handler.dart';
 import 'services/tab_navigation_service.dart';
 import 'utils/constants.dart';
 
@@ -16,7 +18,17 @@ import 'utils/constants.dart';
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  debugPrint('處理背景訊息: ${message.messageId}');
+  debugPrint('========== 處理背景訊息 ==========');
+  debugPrint('Message ID: ${message.messageId}');
+  debugPrint('Data: ${message.data}');
+
+  // 檢查是否為帳號刪除通知
+  if (message.data['type'] == 'ACCOUNT_DELETED') {
+    debugPrint('收到帳號刪除通知（背景）');
+    debugPrint('用戶點擊通知後會在 app 中處理登出流程');
+  }
+
+  debugPrint('==================================');
 }
 
 void main() async {
@@ -66,17 +78,87 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
   String? _lastCheckedUserId;
   OverlayEntry? _notificationOverlay; // 當前通知彈窗的 OverlayEntry
   String _loadingStatus = '正在載入...'; // 載入進度狀態
+  StreamSubscription<String>? _accountDeletedSubscription; // 帳號刪除事件監聽
 
   @override
   void initState() {
     super.initState();
     _initializeApp();
+    _setupAccountDeletedListener();
   }
 
   @override
   void dispose() {
     _dismissNotificationOverlay();
+    _accountDeletedSubscription?.cancel();
     super.dispose();
+  }
+
+  /// 設置帳號刪除事件監聽
+  ///
+  /// 當 API 回傳用戶不存在時，會自動觸發登出並顯示提示
+  void _setupAccountDeletedListener() {
+    final handler = AccountDeletedHandler();
+    _accountDeletedSubscription = handler.onAccountDeleted.listen((reason) {
+      debugPrint('========== 收到帳號刪除事件 ==========');
+      debugPrint('原因: $reason');
+      debugPrint('====================================');
+
+      if (mounted) {
+        _handleAccountDeletedFromApi(reason);
+      }
+    });
+  }
+
+  /// 處理 API 檢測到的帳號刪除
+  Future<void> _handleAccountDeletedFromApi(String reason) async {
+    if (!mounted) return;
+
+    try {
+      final authProvider = context.read<AuthProvider>();
+
+      // 如果用戶已經登出，不需要再處理
+      if (!authProvider.isAuthenticated) {
+        debugPrint('用戶已登出，跳過帳號刪除處理');
+        return;
+      }
+
+      final mapProvider = context.read<MapProvider>();
+      final userProvider = context.read<UserProvider>();
+
+      // 清除所有狀態並登出
+      await authProvider.signOut();
+      mapProvider.reset();
+      userProvider.reset();
+      _lastCheckedUserId = null;
+
+      debugPrint('已清除所有本地資料並登出（API 檢測）');
+
+      // 顯示提示訊息
+      if (mounted) {
+        _dismissNotificationOverlay();
+
+        showCupertinoDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => CupertinoAlertDialog(
+            title: const Text('帳號已被刪除'),
+            content: const Text('您的帳號已被管理員刪除，請重新登入或聯繫客服。'),
+            actions: [
+              CupertinoDialogAction(
+                isDefaultAction: true,
+                child: const Text('確定'),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('處理帳號刪除事件時發生錯誤: $e');
+    }
   }
 
   /// 更新載入狀態顯示
@@ -132,79 +214,74 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
   }
 
   /// 檢查並載入用戶資料
+  /// 
+  /// 簡化後的邏輯：根據 AuthState 判斷是否需要載入用戶資料
   Future<bool> _checkUserData() async {
     final authProvider = context.read<AuthProvider>();
+    final userProvider = context.read<UserProvider>();
 
-    // 如果 Firebase Auth 有登入用戶
-    if (authProvider.isAuthenticated && authProvider.user != null) {
-      final userId = authProvider.user!.uid;
-      final userProvider = context.read<UserProvider>();
+    // 如果正在認證中，等待認證完成
+    if (authProvider.authState == AuthState.authenticating) {
+      debugPrint('AuthWrapper: 認證進行中，等待完成');
+      return true;
+    }
 
-      // 如果註冊/登入正在進行中，不要判斷，等待完成
-      if (authProvider.isLoading) {
-        debugPrint('AuthWrapper: 認證操作進行中，等待完成');
-        return true; // 暫時返回 true，不要登出
-      }
+    // 如果未認證，清除狀態
+    if (!authProvider.isAuthenticated || authProvider.user == null) {
+      _lastCheckedUserId = null;
+      return false;
+    }
 
-      // 如果正在載入用戶資料，不要判斷，等待載入完成
-      if (userProvider.isLoading) {
-        debugPrint('AuthWrapper: 用戶資料正在載入中，等待完成');
-        return true; // 暫時返回 true，不要登出
-      }
+    final userId = authProvider.user!.uid;
 
-      // 如果已經檢查過這個用戶，直接返回
-      if (_lastCheckedUserId == userId) {
-        return userProvider.userProfile != null;
-      }
+    // 如果正在載入用戶資料，等待載入完成
+    if (userProvider.isLoading) {
+      debugPrint('AuthWrapper: 用戶資料載入中，等待完成');
+      return true;
+    }
 
-      // 如果用戶資料已經存在（例如在註冊頁面已經載入），直接使用
-      if (userProvider.userProfile != null) {
-        debugPrint('AuthWrapper: 用戶資料已存在，無需重新載入');
-        _lastCheckedUserId = userId;
+    // 如果已經檢查過這個用戶且有資料，直接返回成功
+    if (_lastCheckedUserId == userId && userProvider.userProfile != null) {
+      return true;
+    }
+
+    // 如果用戶資料已經存在（但可能是不同用戶），直接使用
+    if (userProvider.userProfile?.id == userId) {
+      debugPrint('AuthWrapper: 用戶資料已存在');
+      _lastCheckedUserId = userId;
+      return true;
+    }
+
+    // 載入後端用戶資料
+    try {
+      debugPrint('AuthWrapper: 載入用戶資料 userId=$userId');
+
+      final didLoad = await userProvider.loadUserProfile(userId);
+
+      // 如果載入被跳過（正在載入中），等待完成
+      if (!didLoad) {
+        debugPrint('AuthWrapper: 載入被跳過，等待完成');
         return true;
       }
 
-      try {
-        debugPrint('AuthWrapper: 檢查用戶資料 userId=$userId');
-
-        // 嘗試載入後端用戶資料
-        final didLoad = await userProvider.loadUserProfile(userId);
-
-        // 如果跳過了載入（正在載入中），不要判斷，等待完成
-        if (!didLoad) {
-          debugPrint('AuthWrapper: 載入被跳過，等待完成');
-          return true; // 暫時返回 true，不要登出
-        }
-
-        // 再次檢查是否正在進行認證操作（可能在載入過程中狀態變化了）
-        if (authProvider.isLoading) {
-          debugPrint('AuthWrapper: 認證操作進行中，暫不判斷');
-          return true;
-        }
-
-        // 檢查是否成功載入
-        if (userProvider.userProfile != null) {
-          debugPrint('AuthWrapper: 用戶資料存在');
-          _lastCheckedUserId = userId;
-          return true;
-        } else {
-          debugPrint('AuthWrapper: 後端無用戶資料,登出 Firebase Auth');
-          // 後端沒有用戶資料，登出 Firebase Auth
-          await authProvider.signOut();
-          _lastCheckedUserId = null;
-          return false;
-        }
-      } catch (e) {
-        debugPrint('AuthWrapper: 載入用戶資料失敗 - $e');
-        // 載入失敗，登出
+      // 檢查載入結果
+      if (userProvider.userProfile != null) {
+        debugPrint('AuthWrapper: 用戶資料載入成功');
+        _lastCheckedUserId = userId;
+        return true;
+      } else {
+        // 後端無用戶資料，登出 Firebase Auth
+        debugPrint('AuthWrapper: 後端無用戶資料，登出 Firebase Auth');
         await authProvider.signOut();
         _lastCheckedUserId = null;
         return false;
       }
+    } catch (e) {
+      debugPrint('AuthWrapper: 載入用戶資料失敗 - $e');
+      await authProvider.signOut();
+      _lastCheckedUserId = null;
+      return false;
     }
-
-    _lastCheckedUserId = null;
-    return false;
   }
 
   Future<void> _setupFirebaseMessaging() async {
@@ -257,6 +334,13 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
       debugPrint('Notification: ${message.notification?.toMap()}');
       debugPrint('Data: ${message.data}');
       debugPrint('=====================================');
+
+      // 檢查是否為帳號刪除通知
+      if (message.data['type'] == 'ACCOUNT_DELETED') {
+        debugPrint('收到帳號刪除通知，開始處理登出流程');
+        _handleAccountDeleted(message);
+        return;
+      }
 
       if (message.notification != null) {
         _showForegroundNotification(message);
@@ -358,6 +442,13 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
     debugPrint('處理通知點擊');
     debugPrint('通知類型: ${data['type']}');
 
+    // 檢查是否為帳號刪除通知
+    if (data['type'] == 'ACCOUNT_DELETED') {
+      debugPrint('點擊帳號刪除通知，開始處理登出流程');
+      _handleAccountDeleted(message);
+      return;
+    }
+
     if (data['type'] == 'LOCATION_ALERT') {
       // 跳轉到地圖並定位到通知點位
       final latitude = double.tryParse(data['latitude'] ?? '');
@@ -383,6 +474,77 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
         });
       } else {
         debugPrint('無效的座標資料');
+      }
+    }
+  }
+
+  /// 處理帳號被刪除的通知
+  ///
+  /// 當收到管理員刪除帳號的通知時：
+  /// 1. 清除所有本地資料（Provider 狀態）
+  /// 2. 登出 Firebase Auth
+  /// 3. 顯示提示訊息
+  /// 4. 自動返回登入畫面
+  Future<void> _handleAccountDeleted(RemoteMessage message) async {
+    debugPrint('========== 處理帳號刪除通知 ==========');
+    debugPrint('Message: ${message.data}');
+    debugPrint('Timestamp: ${message.data['timestamp']}');
+    debugPrint('====================================');
+
+    if (!mounted) return;
+
+    try {
+      // 步驟 1 & 2: 登出並清除資料
+      final authProvider = context.read<AuthProvider>();
+      final mapProvider = context.read<MapProvider>();
+      final userProvider = context.read<UserProvider>();
+
+      // 清除所有狀態
+      await authProvider.signOut();
+      mapProvider.reset();
+      userProvider.reset();
+
+      debugPrint('已清除所有本地資料並登出');
+
+      // 步驟 3: 顯示提示訊息
+      if (mounted) {
+        // 關閉可能存在的通知彈窗
+        _dismissNotificationOverlay();
+
+        // 顯示帳號被刪除的提示
+        showCupertinoDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => CupertinoAlertDialog(
+            title: const Text('帳號已被刪除'),
+            content: Text(
+              message.notification?.body ?? '您的帳號已被管理員刪除，請重新登入或聯繫客服。',
+            ),
+            actions: [
+              CupertinoDialogAction(
+                isDefaultAction: true,
+                child: const Text('確定'),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+              ),
+            ],
+          ),
+        );
+      }
+
+      // 步驟 4: 自動返回登入畫面
+      // AuthenticationWrapper 會自動檢測到未登入狀態並顯示登入畫面
+      debugPrint('帳號刪除處理完成，將自動返回登入畫面');
+    } catch (e) {
+      debugPrint('處理帳號刪除通知時發生錯誤: $e');
+
+      // 即使發生錯誤，也要確保登出
+      try {
+        final authProvider = context.read<AuthProvider>();
+        await authProvider.signOut();
+      } catch (signOutError) {
+        debugPrint('登出失敗: $signOutError');
       }
     }
   }
